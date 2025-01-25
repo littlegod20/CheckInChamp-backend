@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "commonjs",
+    "rootDir": "./",                       // Update to your source folder if necessary
+    "outDir": "./dist",                       // Output folder for compiled files
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["./**/*"],                   // Include all files in the 'src' folder
+  "exclude": ["node_modules", "dist"]        // Exclude dependencies and output folder
+}
