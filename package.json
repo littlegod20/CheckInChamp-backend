@@ -1,12 +1,12 @@
 {
-  "name": "bot-on-steroids",
+  "name": "check-in-bot",
   "version": "1.0.0",
   "main": "server.ts",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.ts",
-    "dev": "nodemon --watch 'src/**/*.ts' --exec ts-node src/index.ts",
-    "dev:build": "concurrently \"tsc --watch\" \"nodemon dist/index.js\""
+    "start": "node dist/server.ts",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec ts-node src/server.ts",
+    "dev:build": "concurrently \"tsc --watch\" \"nodemon dist/server.js\""
   },
   "keywords": [],
   "author": "",

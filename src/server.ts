@@ -14,7 +14,7 @@ import cors from 'cors';
 
 //swagger ui implementation
 import swaggerUi from "swagger-ui-express";
-import swaggerSpec from "../swaggerConfig";
+import swaggerSpec from "./config/swaggerConfig";
 
 dotenv.config();
 
