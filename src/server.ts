@@ -30,14 +30,14 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 //a simple root route to the backend 
 app.get('/', (req, res) =>{
-  console.log('heath check');
+  console.log('health check');
   res.send("ok");
  });
 
 // Register routes
-app.use('/api/teams', teamRoutes); // No need for ':teamId' here
+app.use('/api/teams', teamRoutes); 
 app.use('/api/members', memberRoutes); 
-app.use('/api/standups', standupRoutes); // Register the standup routes
+app.use('/api/standups', standupRoutes); 
 app.use((req, res) => {
   res.status(404).send(`Route not found: ${req.method} ${req.url}`);
 });
