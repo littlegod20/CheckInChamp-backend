@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "main": "server.ts",
   "scripts": {
-    "dev": "nodemon --exec ts-node server.ts",
-    "start": "nodemon --exec ts-node server.ts"
+    "build": "tsc",
+    "start": "node dist/server.ts",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec ts-node src/server.ts",
+    "dev:build": "concurrently \"tsc --watch\" \"nodemon dist/server.js\""
   },
   "keywords": [],
   "author": "",
@@ -17,6 +19,7 @@
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.7",
     "@types/testing-library__jest-dom": "^5.14.9",
+    "concurrently": "^9.1.2",
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"

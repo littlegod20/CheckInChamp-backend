@@ -1,20 +1,20 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import teamRoutes from './server/routes/teamRoutes';
-import memberRoutes from './server/routes/memberRoutes';
-import standupRoutes from './server/routes/standupRoutes';
-import { connectDB } from './server/config/database';
-import { slackApp } from './server/config/slack';
-import { appMentionRespond, greetingRespond } from './server/slack_activities/interactions';
-import { home_pub } from './server/slack_activities/slack_home';
+import teamRoutes from './routes/teamRoutes';
+import memberRoutes from './routes/memberRoutes';
+import standupRoutes from './routes/standupRoutes';
+import { connectDB } from './config/database';
+import { slackApp } from './config/slack';
+import { appMentionRespond, greetingRespond } from './slack_activities/interactions';
+import { home_pub } from './slack_activities/slack_home';
 
-import { cacheMembersInRedis, processTeamsWithMembers } from './server/utils/consistent';
+import { cacheMembersInRedis, processTeamsWithMembers } from './utils/consistent';
 
 import cors from 'cors';
 
 //swagger ui implementation
 import swaggerUi from "swagger-ui-express";
-import swaggerSpec from "./swaggerConfig";
+import swaggerSpec from "../swaggerConfig";
 
 dotenv.config();
 
@@ -36,7 +36,7 @@ app.get('/', (req, res) =>{
 
 // Register routes
 app.use('/api/teams', teamRoutes); // No need for ':teamId' here
-app.use('/api/members', memberRoutes); // Keep this as is
+app.use('/api/members', memberRoutes); 
 app.use('/api/standups', standupRoutes); // Register the standup routes
 app.use((req, res) => {
   res.status(404).send(`Route not found: ${req.method} ${req.url}`);
