@@ -12,12 +12,12 @@ const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN as string);
 
 // An object to store scheduled jobs by team and standup ID
 const scheduledJobs: {
-  [_id: string]: { [standupId: string]: schedule.Job[] };
+  [slackChannelId: string]: { [standupId: string]: schedule.Job[] };
 } = {};
 
 // Schedule a standup message for a team
 export const scheduleStandUpMessage = (
-  _id: string,
+  slackChannelId: string,
   teamData: TeamDocumentTypes
 ) => {
   const timezone = teamData.timeZone || "GMT";
@@ -42,18 +42,18 @@ export const scheduleStandUpMessage = (
   // console.log("StandUp Configuration:", teamData.teamstandupQuestions);
 
   // Cancel existing jobs for the team
-  if (scheduledJobs[_id]) {
-    Object.values(scheduledJobs[_id])
+  if (scheduledJobs[slackChannelId]) {
+    Object.values(scheduledJobs[slackChannelId])
       .flat()
       .forEach((job) => job.cancel());
-    delete scheduledJobs[_id];
-    console.log(`Existing jobs for team ${_id} canceled.`);
+    delete scheduledJobs[slackChannelId];
+    console.log(`Existing jobs for team ${slackChannelId} canceled.`);
   }
 
   // Prepare to schedule new jobs
-  scheduledJobs[_id] = {};
+  scheduledJobs[slackChannelId] = {};
 
-  // Assign an ID to the standup (optional: use _id + timestamp or any unique identifier)
+  // Assign an ID to the standup (optional: use slackChannelId + timestamp or any unique identifier)
   const standupId = `${Date.now()}`;
 
   standUpDays.forEach((day: string) => {
@@ -108,28 +108,28 @@ export const scheduleStandUpMessage = (
           ];
 
           const message = await slackClient.chat.postMessage({
-            channel: _id,
+            channel: slackChannelId,
             blocks: blocks,
             text: `📢 *Standup Reminder for Team "${teamData.name}"*`,
           });
 
-          // // Trigger reminders for non-respondents
-          // if (reminderTimes && reminderTimes.length > 0) {
-          //   scheduleReminder(_id, standupId, reminderTimes, timezone);
-          // } else {
-          //   console.error("reminder times not initialized");
-          //   return;
-          // }
+          // Trigger reminders for non-respondents
+          if (reminderTimes && reminderTimes.length > 0) {
+            scheduleReminder(slackChannelId, standupId, reminderTimes, timezone);
+          } else {
+            console.error("reminder times not initialized");
+            return;
+          }
 
           const standupMessageTs = message.ts;
 
-          // // Store the `ts` in the database for later use
+          // Store the `ts` in the database for later use
           await StandupResponse.updateOne(
-            { messageTs: standupMessageTs, _id: _id }, // Query
+            { messageTs: standupMessageTs, slackChannelId: slackChannelId }, // Query
             {
               $set: {
                 messageTs: standupMessageTs,
-                _id: _id,
+                slackChannelId: slackChannelId,
                 // teamName: teamData.name
               },
             },
@@ -137,15 +137,16 @@ export const scheduleStandUpMessage = (
           );
         } catch (error) {
           console.error(
-            `Error in standup job for Team: ${teamData.name}, Standup ID: ${standupId}, channelID: ${_id}`,
+            `Error in standup job for Team: ${teamData.name}, Standup ID: ${standupId}, channelID: ${slackChannelId}`,
             error
           );
         }
       });
 
       // Store the job
-      scheduledJobs[_id][standupId] = scheduledJobs[_id][standupId] || [];
-      scheduledJobs[_id][standupId].push(job);
+      scheduledJobs[slackChannelId][standupId] =
+        scheduledJobs[slackChannelId][standupId] || [];
+      scheduledJobs[slackChannelId][standupId].push(job);
 
       // console.log("Scheduled Jobs:", scheduledJobs);
 

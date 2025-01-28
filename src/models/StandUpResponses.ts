@@ -3,7 +3,7 @@ const { Schema, Document, Types } = mongoose;
 
 const standupResponseSchema = new Schema({
   messageTs: { type: String, required: true },
-  teamId: { type: String, required: true },
+  slackChannelId: { type: String, required: true },
   userId: { type: String, required: true },
   date: { type: Date, required: true },
   responses: [

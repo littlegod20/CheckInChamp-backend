@@ -23,6 +23,7 @@ import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swaggerConfig";
 import { initializeSchedules } from "./helpers/initializeSchedule";
 import channelRoutes from "./routes/channelRoutes";
+import { listenForTeamUpdates } from "./helpers/listenForTeamUpdates";
 
 dotenv.config();
 
@@ -43,7 +44,7 @@ app.get("/", (req, res) => {
 });
 
 // testing channel creation
-// app.post("/api/channel", channelRoutes);
+app.use("/api/channel", channelRoutes);
 
 // Register routes
 app.use("/api/teams", teamRoutes);
@@ -72,6 +73,7 @@ home_pub();
     const SLACK_PORT = 3000;
     await slackApp.start(SLACK_PORT);
     initializeSchedules();
+    listenForTeamUpdates();
     console.log(`⚡️ FlowSync app is running on port ${SLACK_PORT}`);
   } catch (error) {
     console.error("Error starting FlowSync app:", error);

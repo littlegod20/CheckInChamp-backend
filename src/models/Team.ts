@@ -29,9 +29,9 @@ const teamSchema: Schema = new Schema({
   standUpConfig: {
     questions: [
       {
-        id: { type: String, required: true },
+        id: { type: String },
         options: [{ type: String }],
-        require: { type: Boolean, required: true },
+        require: { type: Boolean },
         text: { type: String, required: true },
         type: { type: String, required: true },
       },

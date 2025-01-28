@@ -13,7 +13,7 @@ export const initializeSchedules = async () => {
     teamSnapshot.forEach((team) => {
       // console.log("Normalized TeamData:", team);
 
-      scheduleStandUpMessage(team._id, team);
+      scheduleStandUpMessage(team.slackChannelId, team);
     });
     console.log("All standup schedules initialized.");
   } catch (error) {
