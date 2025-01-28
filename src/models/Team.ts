@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 interface IStandUpQuestion {
-  id: string;
+  _id: string;
   options?: string[];
   require: boolean;
   text: string;
@@ -29,7 +29,7 @@ const teamSchema: Schema = new Schema({
   standUpConfig: {
     questions: [
       {
-        id: { type: String },
+        _id: { type: String },
         options: [{ type: String }],
         require: { type: Boolean },
         text: { type: String, required: true },

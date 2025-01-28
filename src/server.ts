@@ -24,6 +24,8 @@ import swaggerSpec from "./config/swaggerConfig";
 import { initializeSchedules } from "./helpers/initializeSchedule";
 import channelRoutes from "./routes/channelRoutes";
 import { listenForTeamUpdates } from "./helpers/listenForTeamUpdates";
+import { handleButtonClick } from "./slack_activities/interactions/handleRespondStandupBtn";
+import { handleModalSubmission } from "./slack_activities/interactions/handleStandUpSubmission";
 
 dotenv.config();
 
@@ -45,6 +47,26 @@ app.get("/", (req, res) => {
 
 // testing channel creation
 app.use("/api/channel", channelRoutes);
+
+// Register the action handler for button clicks
+slackApp.action(/standup_/, async ({ body, ack }) => {
+  // Acknowledge the action to Slack
+  await ack();
+
+  // Pass the payload to the handler
+  await handleButtonClick(body);
+});
+
+slackApp.view("standup_submission", async ({ ack, body, client }) => {
+  await ack(); // Acknowledge the modal submission
+
+  try {
+    // Call the submission handler function
+    await handleModalSubmission(body);
+  } catch (error) {
+    console.error("Error handling modal submission:", error);
+  }
+});
 
 // Register routes
 app.use("/api/teams", teamRoutes);

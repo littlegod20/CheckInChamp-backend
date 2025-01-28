@@ -115,7 +115,12 @@ export const scheduleStandUpMessage = (
 
           // Trigger reminders for non-respondents
           if (reminderTimes && reminderTimes.length > 0) {
-            scheduleReminder(slackChannelId, standupId, reminderTimes, timezone);
+            scheduleReminder(
+              slackChannelId,
+              standupId,
+              reminderTimes,
+              timezone
+            );
           } else {
             console.error("reminder times not initialized");
             return;
@@ -125,12 +130,18 @@ export const scheduleStandUpMessage = (
 
           // Store the `ts` in the database for later use
           await StandupResponse.updateOne(
-            { messageTs: standupMessageTs, slackChannelId: slackChannelId }, // Query
+            {
+              messageTs: standupMessageTs,
+              slackChannelId: slackChannelId,
+              teamName: teamData.name,
+              standupId: standupId,
+            }, // Query
             {
               $set: {
                 messageTs: standupMessageTs,
                 slackChannelId: slackChannelId,
-                // teamName: teamData.name
+                teamName: teamData.name,
+                standupId: standupId,
               },
             },
             { upsert: true } // create if not found
