@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 
 interface IStandUpQuestion {
   _id: string;
-  options?: string[];
+  options?: string[] | number[];
   require: boolean;
   text: string;
   type: string;

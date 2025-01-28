@@ -29,6 +29,8 @@ export const handleButtonClick = async (payload: any) => {
     console.log("TeamData:", teamDoc);
     const standupQuestions = teamDoc?.standUpConfig.questions || [];
 
+    console.log("standupQuestions:", standupQuestions);
+
     if (standupQuestions.length === 0) {
       console.log(
         `No standup questions configured for slackChannelId: ${slackChannelId}`
@@ -86,45 +88,26 @@ export const handleButtonClick = async (payload: any) => {
 
     // Dynamically generate modal blocks based on fetched questions
     const modalBlocks = standupQuestions.map((item, index: number) => {
+      const questionId = item.id || `generated_id_${index}`;
+
       let element;
 
-      console.log("question id:", item._id);
+      console.log("question id:", questionId);
 
       // Customize the element based on the type
       switch (item.type) {
-        case "free_text":
+        case "plain_text_input":
           element = {
             type: "plain_text_input",
-            action_id: `answer_${item._id}`,
+            action_id: `answer_${questionId}`,
             multiline: true,
           };
           break;
 
-        case "boolean":
+        case "static_select":
           element = {
             type: "static_select",
-            action_id: `answer_${item._id}`,
-            placeholder: {
-              type: "plain_text",
-              text: "Select an option",
-            },
-            options: [
-              {
-                text: { type: "plain_text", text: "Yes" },
-                value: "yes",
-              },
-              {
-                text: { type: "plain_text", text: "No" },
-                value: "no",
-              },
-            ],
-          };
-          break;
-
-        case "single_select":
-          element = {
-            type: "static_select",
-            action_id: `answer_${item._id}`,
+            action_id: `answer_${questionId}`,
             placeholder: {
               type: "plain_text",
               text: "Choose an option",
@@ -136,55 +119,21 @@ export const handleButtonClick = async (payload: any) => {
           };
           break;
 
-        case "number":
+        case "radio":
           element = {
-            type: "plain_text_input",
-            action_id: `answer_${item._id}`,
-            placeholder: {
-              type: "plain_text",
-              text: "Enter a number",
-            },
-            type_input_hint: {
-              type: "plain_text",
-              text: "Please enter a numeric value",
-            },
-          };
-          break;
-
-        case "rating":
-          element = {
-            type: "static_select",
-            action_id: `answer_${item._id}`,
-            placeholder: {
-              type: "plain_text",
-              text: "Select Rating",
-            },
-            options:
-              item.options?.map((option: string, index: number) => ({
-                text: {
-                  type: "plain_text",
-                  text: option,
-                },
-                value: `${index + 1}`, // Use index as value if no specific value provided
-              })) || [],
-          };
-          break;
-
-        case "email":
-          element = {
-            type: "plain_text_input",
-            action_id: `answer_${item._id}`,
-            placeholder: {
-              type: "plain_text",
-              text: "Enter email address",
-            },
+            type: "radio_buttons",
+            action_id: `answer_${questionId}`,
+            options: item.options?.map((option: string) => ({
+              text: { type: "plain_text", text: option },
+              value: option,
+            })),
           };
           break;
 
         case "checkbox":
           element = {
             type: "checkboxes",
-            action_id: `answer_${item._id}`,
+            action_id: `answer_${questionId}`,
             options: item.options?.map((option: string) => ({
               text: { type: "plain_text", text: option },
               value: option,
@@ -195,14 +144,14 @@ export const handleButtonClick = async (payload: any) => {
         default:
           element = {
             type: "plain_text_input",
-            action_id: `answer_${item._id}`,
+            action_id: `answer_${questionId}`,
           };
           break;
       }
 
       return {
         type: "input",
-        block_id: `question_${item._id}`,
+        block_id: `question_${questionId}`,
         element: element,
         label: {
           type: "plain_text",

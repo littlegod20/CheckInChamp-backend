@@ -1,6 +1,6 @@
 interface StandUpQuestionsTypes {
   questions: {
-    _id: string;
+    id: string;
     options?: string[];
     required: boolean;
     text: string;
