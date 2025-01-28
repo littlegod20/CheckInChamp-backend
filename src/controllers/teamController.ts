@@ -60,6 +60,10 @@ export const createTeam = async (
 
     //get the slack channel details after successfully creating it
     if (slackChannelResponse.ok && slackChannelResponse.channel) {
+      await slackClient.conversations.invite({
+        channel: slackChannelResponse.channel.id as string,
+        users: members.join(","), // Invite all members to the channel
+      });
       team.slackChannelId = slackChannelResponse.channel.id as string;
       await team.save();
     } else {
@@ -85,6 +89,73 @@ export const createTeam = async (
     });
 
     res.status(400).json({ error: error.message || "Unknown error occurred" });
+  }
+};
+
+// function for testing channel creation
+export const createChannel = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const slackChannelResponse = await slackClient.conversations.create({
+      name: "watchdogs",
+      is_private: false,
+    });
+
+    //invite your slack user to the channel
+    await slackClient.conversations.invite({
+      channel: slackChannelResponse.channel?.id as string,
+      users: "U08B0A92VQQ",
+    });
+
+    console.log("Slack channel creation response:", slackChannelResponse);
+    res.status(201).json({
+      message: "Channel created successfully",
+      slackChannel: slackChannelResponse.channel,
+    });
+  } catch (error: any) {
+    // Enhanced error logging
+    console.error("Error in createChannel:", {
+      message: error.message,
+      stack: error.stack,
+    });
+
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// function for channel deletion
+export const deleteChannel = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { channelId } = req.body;
+
+    if (!channelId) {
+      res.status(400).json({ error: "Channel ID is required" });
+      return;
+    }
+
+    // Archive (delete) the channel
+    await slackClient.conversations.archive({
+      channel: channelId,
+    });
+
+    console.log(`Channel with ID ${channelId} has been archived.`);
+    res.status(200).json({
+      message: "Channel deleted (archived) successfully",
+      channelId,
+    });
+  } catch (error: any) {
+    // Enhanced error logging
+    console.error("Error in deleteChannel:", {
+      message: error.message,
+      stack: error.stack,
+    });
+
+    res.status(400).json({ error: error.message });
   }
 };
 
@@ -180,113 +251,113 @@ export const deleteTeam = async (
 };
 
 // Sending usual reminders to team's channel and members to remind them
-async function scheduleChannelReminder(
-  channel: string,
-  text: string,
-  scheduleTime: Date,
-  url: string
-): Promise<void> {
-  schedule.scheduleJob(scheduleTime, async () => {
-    try {
-      // Define the message with the button
-      const message = {
-        channel,
-        text,
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: "Please fill in for your standups",
-            },
-          },
-          {
-            type: "actions",
-            elements: [
-              {
-                type: "button",
-                text: {
-                  type: "plain_text",
-                  text: "Proceed to Fill",
-                },
-                url: url,
-              },
-            ],
-          },
-        ],
-      };
+// async function scheduleChannelReminder(
+//   channel: string,
+//   text: string,
+//   scheduleTime: Date,
+//   url: string
+// ): Promise<void> {
+//   schedule.scheduleJob(scheduleTime, async () => {
+//     try {
+//       // Define the message with the button
+//       const message = {
+//         channel,
+//         text,
+//         blocks: [
+//           {
+//             type: "section",
+//             text: {
+//               type: "mrkdwn",
+//               text: "Please fill in for your standups",
+//             },
+//           },
+//           {
+//             type: "actions",
+//             elements: [
+//               {
+//                 type: "button",
+//                 text: {
+//                   type: "plain_text",
+//                   text: "Proceed to Fill",
+//                 },
+//                 url: url,
+//               },
+//             ],
+//           },
+//         ],
+//       };
 
-      // Send reminder to the team channel with the button
-      const channelResult = await slackClient.chat.postMessage(message);
-      console.log(`Reminder sent to channel ${channel}:`, channelResult);
+//       // Send reminder to the team channel with the button
+//       const channelResult = await slackClient.chat.postMessage(message);
+//       console.log(`Reminder sent to channel ${channel}:`, channelResult);
 
-      // Find the team by channel ID to get the members
-      const channelId = channel.toString();
-      const team = await Team.findOne({ slackChannelId: channelId });
-      if (team && team.members) {
-        // Convert ObjectId to string and send reminders with the button
-        for (const memberId of team.members.map((id: any) => id.toString())) {
-          // Append memberId to the URL as a query parameter
-          const memberUrl = `${url}?memberId=${memberId}`;
+//       // Find the team by channel ID to get the members
+//       const channelId = channel.toString();
+//       const team = await Team.findOne({ slackChannelId: channelId });
+//       if (team && team.members) {
+//         // Convert ObjectId to string and send reminders with the button
+//         for (const memberId of team.members.map((id: any) => id.toString())) {
+//           // Append memberId to the URL as a query parameter
+//           const memberUrl = `${url}?memberId=${memberId}`;
 
-          // Create the member message with the modified URL
-          const memberMessage = {
-            ...message,
-            channel: memberId,
-            blocks: message.blocks.map((block) => {
-              if (block.type === "actions") {
-                return {
-                  ...block,
-                  elements: block.elements?.map((element) => ({
-                    ...element,
-                    url: memberUrl, // Use the new URL with the memberId
-                  })),
-                };
-              }
-              return block;
-            }),
-          };
+//           // Create the member message with the modified URL
+//           const memberMessage = {
+//             ...message,
+//             channel: memberId,
+//             blocks: message.blocks.map((block) => {
+//               if (block.type === "actions") {
+//                 return {
+//                   ...block,
+//                   elements: block.elements?.map((element) => ({
+//                     ...element,
+//                     url: memberUrl, // Use the new URL with the memberId
+//                   })),
+//                 };
+//               }
+//               return block;
+//             }),
+//           };
 
-          const memberResult = await slackClient.chat.postMessage(
-            memberMessage
-          );
-          console.log(`Reminder sent to member ${memberId}:`, memberResult);
-        }
-      } else {
-        console.warn(
-          `No team found with channel ID ${channel} or no members in the team.`
-        );
-      }
-    } catch (error) {
-      console.error(
-        `Failed to send reminder to channel ${channel} or its members:`,
-        error
-      );
-    }
-  });
-}
+//           const memberResult = await slackClient.chat.postMessage(
+//             memberMessage
+//           );
+//           console.log(`Reminder sent to member ${memberId}:`, memberResult);
+//         }
+//       } else {
+//         console.warn(
+//           `No team found with channel ID ${channel} or no members in the team.`
+//         );
+//       }
+//     } catch (error) {
+//       console.error(
+//         `Failed to send reminder to channel ${channel} or its members:`,
+//         error
+//       );
+//     }
+//   });
+// }
 
-// Set team reminder using arguments set in the post request
-export function scheduleTeamReminder(req: Request, res: Response): void {
-  const { channel, text, scheduleTime } = req.body;
+// // Set team reminder using arguments set in the post request
+// export function scheduleTeamReminder(req: Request, res: Response): void {
+//   const { channel, text, scheduleTime } = req.body;
 
-  const url = `http://localhost:5173/standup-answer/${channel}`;
-  console.log(
-    "Received POST /teams/team-reminder request with body:",
-    req.body
-  );
-  try {
-    const scheduleDate = new Date(scheduleTime); // Convert scheduleTime to Date object
-    scheduleChannelReminder(channel, text, scheduleDate, url);
-    res.status(201).json({ message: "Team reminder scheduled successfully" });
-  } catch (error: any) {
-    // Enhanced error logging
-    console.error("Error in scheduleTeamReminder:", {
-      message: error.message,
-      stack: error.stack,
-      body: req.body,
-    });
+//   const url = `http://localhost:5173/standup-answer/${channel}`;
+//   console.log(
+//     "Received POST /teams/team-reminder request with body:",
+//     req.body
+//   );
+//   try {
+//     const scheduleDate = new Date(scheduleTime); // Convert scheduleTime to Date object
+//     scheduleChannelReminder(channel, text, scheduleDate, url);
+//     res.status(201).json({ message: "Team reminder scheduled successfully" });
+//   } catch (error: any) {
+//     // Enhanced error logging
+//     console.error("Error in scheduleTeamReminder:", {
+//       message: error.message,
+//       stack: error.stack,
+//       body: req.body,
+//     });
 
-    res.status(400).json({ error: error.message });
-  }
-}
+//     res.status(400).json({ error: error.message });
+//   }
+// }

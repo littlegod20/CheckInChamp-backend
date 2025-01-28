@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTeam, deleteTeam, getTeams,getTeamsWithQuestions, scheduleTeamReminder } from '../controllers/teamController';
+import { createChannel, createTeam, deleteTeam, getTeams,getTeamsWithQuestions } from '../controllers/teamController';
 
 
 
@@ -12,13 +12,13 @@ router.get('/', getTeams);
 router.get('/questions', getTeamsWithQuestions);
 
 //create a new team
-router.post('/', createTeam);
+router.post('/', createTeam)
 
 // Delete a team
 router.delete('/:teamId', deleteTeam);
 
-//schedule reminder for teams
-router.post('/team-reminder', scheduleTeamReminder);
+// //schedule reminder for teams
+// router.post('/team-reminder', scheduleTeamReminder);
 
 
 

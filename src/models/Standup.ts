@@ -22,3 +22,5 @@ const standupSchema = new mongoose.Schema({
 
 
 export const Standup = mongoose.model<IStandup>('Standup', standupSchema);
+
+

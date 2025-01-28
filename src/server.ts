@@ -1,20 +1,28 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import teamRoutes from './routes/teamRoutes';
-import memberRoutes from './routes/memberRoutes';
-import standupRoutes from './routes/standupRoutes';
-import { connectDB } from './config/database';
-import { slackApp } from './config/slack';
-import { appMentionRespond, greetingRespond } from './slack_activities/interactions';
-import { home_pub } from './slack_activities/slack_home';
+import express from "express";
+import dotenv from "dotenv";
+import teamRoutes from "./routes/teamRoutes";
+import memberRoutes from "./routes/memberRoutes";
+import standupRoutes from "./routes/standupRoutes";
+import { connectDB } from "./config/database";
+import { slackApp } from "./config/slack";
+import {
+  appMentionRespond,
+  greetingRespond,
+} from "./slack_activities/interactions";
+import { home_pub } from "./slack_activities/slack_home";
 
-import { cacheMembersInRedis, processTeamsWithMembers } from './utils/consistent';
+import {
+  cacheMembersInRedis,
+  processTeamsWithMembers,
+} from "./utils/consistent";
 
-import cors from 'cors';
+import cors from "cors";
 
 //swagger ui implementation
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swaggerConfig";
+import { initializeSchedules } from "./helpers/initializeSchedule";
+import channelRoutes from "./routes/channelRoutes";
 
 dotenv.config();
 
@@ -28,16 +36,19 @@ connectDB();
 // Health check endpoint
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-//a simple root route to the backend 
-app.get('/', (req, res) =>{
-  console.log('health check');
+//a simple root route to the backend
+app.get("/", (req, res) => {
+  console.log("health check");
   res.send("ok");
- });
+});
+
+// testing channel creation
+// app.post("/api/channel", channelRoutes);
 
 // Register routes
-app.use('/api/teams', teamRoutes); 
-app.use('/api/members', memberRoutes); 
-app.use('/api/standups', standupRoutes); 
+app.use("/api/teams", teamRoutes);
+app.use("/api/members", memberRoutes);
+app.use("/api/standups", standupRoutes);
 app.use((req, res) => {
   res.status(404).send(`Route not found: ${req.method} ${req.url}`);
 });
@@ -55,17 +66,15 @@ greetingRespond();
 //slack rendering
 home_pub();
 
-
-
 // Start Slack Bot
 (async () => {
   try {
-    const SLACK_PORT = 3000; 
+    const SLACK_PORT = 3000;
     await slackApp.start(SLACK_PORT);
-    
+    initializeSchedules();
     console.log(`⚡️ FlowSync app is running on port ${SLACK_PORT}`);
   } catch (error) {
-    console.error('Error starting FlowSync app:', error);
+    console.error("Error starting FlowSync app:", error);
     process.exit(1);
   }
 })();
@@ -75,8 +84,3 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
-
-
-
-
