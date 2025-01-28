@@ -15,7 +15,7 @@ router.get('/questions', getTeamsWithQuestions);
 router.post('/', createTeam)
 
 // Delete a team
-router.delete('/:teamId', deleteTeam);
+router.delete('/:slackChannelId', deleteTeam);
 
 // //schedule reminder for teams
 // router.post('/team-reminder', scheduleTeamReminder);

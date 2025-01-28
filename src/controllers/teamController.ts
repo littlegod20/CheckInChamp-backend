@@ -208,16 +208,16 @@ export const deleteTeam = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { teamId } = req.params; // Slack channel ID
+  const { slackChannelId } = req.params; // Slack channel ID
 
   try {
     // Attempt to delete the Slack channel associated with the team
     try {
-      await slackClient.conversations.archive({ channel: teamId });
+      await slackClient.conversations.archive({ channel: slackChannelId });
     } catch (archiveError: any) {
       if (archiveError.data.error === "not_in_channel") {
         console.warn(
-          `Bot is not in the channel ${teamId}, proceeding with team deletion.`
+          `Bot is not in the channel ${slackChannelId}, proceeding with team deletion.`
         );
       } else {
         throw archiveError;
@@ -225,27 +225,31 @@ export const deleteTeam = async (
     }
 
     // Find the team by Slack channel ID and delete it
-    const team = await Team.findOneAndDelete({ slackChannelId: teamId });
+    const team = await Team.findOneAndDelete({
+      slackChannelId: slackChannelId,
+    });
 
     if (!team) {
       res
         .status(404)
-        .json({ message: `Team with Slack ID ${teamId} not found` });
+        .json({ message: `Team with Slack ID ${slackChannelId} not found` });
       return;
     }
 
     res
       .status(200)
-      .json({ message: `Team with Slack ID ${teamId} deleted successfully` });
+      .json({
+        message: `Team with Slack ID ${slackChannelId} deleted successfully`,
+      });
   } catch (error: any) {
     // Enhanced error logging
     console.error("Error in deleteTeam:", {
       message: error.message,
       stack: error.stack,
-      teamId,
+      slackChannelId,
     });
     res.status(500).json({
-      error: `Failed to delete team with Slack ID ${teamId}: ${error.message}`,
+      error: `Failed to delete team with Slack ID ${slackChannelId}: ${error.message}`,
     });
   }
 };
