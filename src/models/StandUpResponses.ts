@@ -11,7 +11,7 @@ const standupResponseSchema = new Schema({
     {
       questionId: { type: String, required: true },
       questionType: String,
-      answer: String,
+      answer: [String],
     },
   ],
   standupId: String,

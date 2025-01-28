@@ -51,10 +51,7 @@ export const handleButtonClick = async (payload: any) => {
     const standupDoc = await StandupResponse.findOne({ standupId: standupId });
 
     if (standupDoc) {
-      const responses = standupDoc?.responses || [];
-      const hasRespondedToday = responses.some(
-        (response: any) => response.userId === userId && response.date === today
-      );
+      const hasRespondedToday = standupDoc.userId === userId && new Date(standupDoc.date).toISOString().split("T")[0] === today;
 
       if (hasRespondedToday) {
         // Open a modal indicating the user has already submitted
@@ -88,11 +85,12 @@ export const handleButtonClick = async (payload: any) => {
 
     // Dynamically generate modal blocks based on fetched questions
     const modalBlocks = standupQuestions.map((item, index: number) => {
-      const questionId = item.id || `generated_id_${index}`;
+      const questionId = item.id || index
+
 
       let element;
 
-      console.log("question id:", questionId);
+      console.log("question id:", item.id);
 
       // Customize the element based on the type
       switch (item.type) {

@@ -1,26 +1,26 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
-interface IStandUpQuestion {
-  _id: string;
-  options?: string[] | number[];
-  require: boolean;
-  text: string;
-  type: string;
-}
+// interface IStandUpQuestion {
+//   _id: string;
+//   options?: string[] | number[];
+//   require: boolean;
+//   text: string;
+//   type: string;
+// }
 
-export interface ITeam extends Document {
-  name: string;
-  members: string[];
-  slackChannelId: string;
-  standUpConfig: {
-    questions: IStandUpQuestion[];
-    reminderTimes: string[];
-    standUpDays: string[];
-    standUpTimes: string[];
-  };
-  timezone: string;
-  is_archived: boolean;
-}
+// export interface ITeam extends Document {
+//   name: string;
+//   members: string[];
+//   slackChannelId: string;
+//   standUpConfig: {
+//     questions: IStandUpQuestion[];
+//     reminderTimes: string[];
+//     standUpDays: string[];
+//     standUpTimes: string[];
+//   };
+//   timezone: string;
+//   is_archived: boolean;
+// }
 
 const teamSchema: Schema = new Schema({
   name: { type: String, required: true, unique: true },
@@ -29,7 +29,7 @@ const teamSchema: Schema = new Schema({
   standUpConfig: {
     questions: [
       {
-        _id: { type: String },
+        id: { type: String },
         options: [{ type: String }],
         require: { type: Boolean },
         text: { type: String, required: true },
@@ -43,7 +43,5 @@ const teamSchema: Schema = new Schema({
   timezone: { type: String, required: true },
   is_archived: { type: Boolean, default: false },
 });
-// schedule: { type: String },
-// description: { type: String },
 
-export const Team = mongoose.model<ITeam>("Team", teamSchema);
+export const Team = mongoose.model<TeamDocumentTypes>("Team", teamSchema);

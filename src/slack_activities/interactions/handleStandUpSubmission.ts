@@ -36,7 +36,8 @@ export const handleModalSubmission = async (payload: any) => {
 
         // Find the corresponding question from team's questions
         const questionId = blockId.replace("question_", "");
-        const questionDetails = teamQuestions.find((q) => q._id === questionId);
+        console.log("questionId:", questionId)
+        const questionDetails = teamQuestions.find((q) => q.id === questionId);
 
         console.log("QuestionDets:", questionDetails);
         if (!questionDetails) {
@@ -64,7 +65,7 @@ export const handleModalSubmission = async (payload: any) => {
         }
 
         return {
-          questionId: questionDetails._id, // Use actual question ID from db
+          questionId: questionDetails.id, // Use actual question ID from db
           questionType: questionDetails.type,
           answer: answer,
         };

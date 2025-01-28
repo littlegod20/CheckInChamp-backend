@@ -18,10 +18,22 @@ export const listenForTeamUpdates = async () => {
           break;
         case "update":
           console.log(`Team ${change.fullDocument.name} updated.`);
-          scheduleStandUpMessage(
-            change.fullDocument.slackChannelId,
-            change.fullDocument
-          );
+           const updatedTeam = change.fullDocument;
+
+           // Ensure timezone is preserved in case of missing field
+           const existingTeam = await Team.findById(updatedTeam._id);
+           const existingTimezone = existingTeam?.timezone || "GMT";
+
+           await Team.updateOne(
+             { _id: updatedTeam._id },
+             {
+               $set: {
+                 timezone: updatedTeam.timezone || existingTimezone,
+               },
+             }
+           );
+
+           scheduleStandUpMessage(updatedTeam.slackChannelId, updatedTeam);
           break;
         case "delete":
           console.log(`Team ${change.fullDocument.name} deleted.`);

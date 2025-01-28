@@ -20,7 +20,7 @@ export const scheduleStandUpMessage = (
   slackChannelId: string,
   teamData: TeamDocumentTypes
 ) => {
-  const timezone = teamData.timeZone || "GMT";
+  const timezone = teamData.timezone || "GMT";
 
   const { standUpDays, standUpTimes, reminderTimes } = teamData.standUpConfig;
 
@@ -37,9 +37,6 @@ export const scheduleStandUpMessage = (
     );
     return;
   }
-
-  // console.log("Scheduling StandUp for Team:", teamData.name);
-  // console.log("StandUp Configuration:", teamData.teamstandupQuestions);
 
   // Cancel existing jobs for the team
   if (scheduledJobs[slackChannelId]) {

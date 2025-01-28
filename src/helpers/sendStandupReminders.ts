@@ -45,7 +45,7 @@ export const sendStandupReminders = async (
     // Check standup responses
     const standupDoc = (await StandupResponse.find({
       standupId: standupId,
-    })) as unknown as StandupTypes;
+    })) as unknown as StandupResponseTypes;
     const responses: ResponsesTypes[] = standupDoc ? standupDoc?.responses : [];
 
     if (!responses) {
