@@ -14,15 +14,19 @@ export const sendStandupReminders = async (
     // Get team data
     const teamDoc = (await Team.find({
       slackChannelId: slackChannelId,
-    })) as unknown as TeamDocumentTypes;
+    })) as unknown as TeamDocumentTypes[];
+
+
     if (!teamDoc) {
       console.error("Team not found!");
       return;
     }
 
-    console.log("Team Doc From Reminders:", teamDoc);
+    const teamData = teamDoc[0]
 
-    const reminderTimes = teamDoc.standUpConfig.reminderTimes;
+    console.log("Team Doc From Reminders:", teamData);
+
+    const reminderTimes = teamData.standUpConfig.reminderTimes;
 
     console.log("reminderTimes:", reminderTimes);
 
@@ -32,7 +36,7 @@ export const sendStandupReminders = async (
     }
 
     // get all user from team
-    const members = teamDoc.members;
+    const members = teamData.members;
     const now = new Date();
 
     // Get current date in YYYY-MM-DD format
@@ -41,7 +45,7 @@ export const sendStandupReminders = async (
     // Check standup responses
     const standupDoc = (await StandupResponse.find({
       standupId: standupId,
-    })) as unknown as StandupTypes;
+    })) as unknown as StandupResponseTypes;
     const responses: ResponsesTypes[] = standupDoc ? standupDoc?.responses : [];
 
     if (!responses) {
@@ -59,7 +63,7 @@ export const sendStandupReminders = async (
             console.log("memberID:", member);
             await slackClient.chat.postMessage({
               channel: member,
-              text: `Reminder: Please submit your standup reponses for today for <#${teamDoc.slackChannelId}|${teamDoc.name}>`,
+              text: `Reminder: Please submit your standup reponses for today for <#${teamData.slackChannelId}|${teamData.name}>`,
             });
           }
         } else {

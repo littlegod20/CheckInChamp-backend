@@ -20,7 +20,7 @@ export const scheduleStandUpMessage = (
   slackChannelId: string,
   teamData: TeamDocumentTypes
 ) => {
-  const timezone = teamData.timeZone || "GMT";
+  const timezone = teamData.timezone || "GMT";
 
   const { standUpDays, standUpTimes, reminderTimes } = teamData.standUpConfig;
 
@@ -37,9 +37,6 @@ export const scheduleStandUpMessage = (
     );
     return;
   }
-
-  // console.log("Scheduling StandUp for Team:", teamData.name);
-  // console.log("StandUp Configuration:", teamData.teamstandupQuestions);
 
   // Cancel existing jobs for the team
   if (scheduledJobs[slackChannelId]) {
@@ -115,7 +112,12 @@ export const scheduleStandUpMessage = (
 
           // Trigger reminders for non-respondents
           if (reminderTimes && reminderTimes.length > 0) {
-            scheduleReminder(slackChannelId, standupId, reminderTimes, timezone);
+            scheduleReminder(
+              slackChannelId,
+              standupId,
+              reminderTimes,
+              timezone
+            );
           } else {
             console.error("reminder times not initialized");
             return;
@@ -125,12 +127,18 @@ export const scheduleStandUpMessage = (
 
           // Store the `ts` in the database for later use
           await StandupResponse.updateOne(
-            { messageTs: standupMessageTs, slackChannelId: slackChannelId }, // Query
+            {
+              messageTs: standupMessageTs,
+              slackChannelId: slackChannelId,
+              teamName: teamData.name,
+              standupId: standupId,
+            }, // Query
             {
               $set: {
                 messageTs: standupMessageTs,
                 slackChannelId: slackChannelId,
-                // teamName: teamData.name
+                teamName: teamData.name,
+                standupId: standupId,
               },
             },
             { upsert: true } // create if not found
