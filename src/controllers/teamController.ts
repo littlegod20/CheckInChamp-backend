@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
 import { Team } from "../models/Team";
-import { Question } from "../models/Question";
-import { Standup } from "../models/Standup";
 
 import { web as slackClient } from "../config/slack";
 import schedule from "node-schedule";
@@ -175,33 +173,33 @@ export const getTeams = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-//get all teams and the questions attached to them
-export const getTeamsWithQuestions = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const teams = await Team.find();
-    const teamsWithQuestions = await Promise.all(
-      teams.map(async (team) => {
-        const questions = await Question.find({ team: team.slackChannelId });
-        return {
-          team,
-          questions,
-        };
-      })
-    );
-    res.json(teamsWithQuestions);
-  } catch (error: any) {
-    // Enhanced error logging
-    console.error("Error in getTeamsWithQuestions:", {
-      message: error.message,
-      stack: error.stack,
-    });
+// //get all teams and the questions attached to them
+// export const getTeamsWithQuestions = async (
+//   req: Request,
+//   res: Response
+// ): Promise<void> => {
+//   try {
+//     const teams = await Team.find();
+//     const teamsWithQuestions = await Promise.all(
+//       teams.map(async (team) => {
+//         const questions = await Question.find({ team: team.slackChannelId });
+//         return {
+//           team,
+//           questions,
+//         };
+//       })
+//     );
+//     res.json(teamsWithQuestions);
+//   } catch (error: any) {
+//     // Enhanced error logging
+//     console.error("Error in getTeamsWithQuestions:", {
+//       message: error.message,
+//       stack: error.stack,
+//     });
 
-    res.status(400).json({ error: error.message });
-  }
-};
+//     res.status(400).json({ error: error.message });
+//   }
+// };
 
 // Function required to delete a team
 export const deleteTeam = async (

@@ -1,4 +1,5 @@
 interface StandupResponseTypes {
+  teamName: string;
   userId: string;
   slackChannelId: string;
   messageTs: string;

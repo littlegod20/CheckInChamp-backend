@@ -1,8 +1,6 @@
 import { Request, Response } from "express";
 import { Member } from "../models/Member";
 import { Team } from "../models/Team";
-// import { WebClient } from '@slack/web-api';
-// const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
 import { redisClient } from "../config/redis";
 
 import { web as slackClient } from "../config/slack";
