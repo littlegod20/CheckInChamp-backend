@@ -1,5 +1,6 @@
 import express from 'express';
-import { createChannel, createTeam, deleteTeam, getTeams } from '../controllers/teamController';
+import { createChannel, createTeam, deleteTeam, generateTeamReport, getTeams } from '../controllers/teamController';
+
 
 
 
@@ -16,6 +17,8 @@ router.post('/', createTeam)
 
 // Delete a team
 router.delete('/:slackChannelId', deleteTeam);
+
+router.get("/report", generateTeamReport);
 
 // //schedule reminder for teams
 // router.post('/team-reminder', scheduleTeamReminder);

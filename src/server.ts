@@ -96,9 +96,9 @@ home_pub();
     await slackApp.start(SLACK_PORT);
     initializeSchedules();
     listenForTeamUpdates();
-    console.log(`⚡️ FlowSync app is running on port ${SLACK_PORT}`);
+    console.log(`⚡️ Check In app is running on port ${SLACK_PORT}`);
   } catch (error) {
-    console.error("Error starting FlowSync app:", error);
+    console.error("Error starting Check In app:", error);
     process.exit(1);
   }
 })();

@@ -9,17 +9,19 @@ export const getStandupsByFilterOrAll = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { teamId, date, userId } = req.query;
+  const { slackChannelId, date, userId } = req.query;
   try {
     const query: any = {};
-    if (teamId) query.slackChannelId = teamId;
+    if (slackChannelId) query.slackChannelId = slackChannelId;
     if (date) query.date = new Date(date as string).toISOString().split("T")[0];
     if (userId) query.userId = userId;
 
+    console.log("Slackchannel Id:", slackChannelId);
+    console.log("query:", query);
     // Fetch standups based on filters
     const standups = await StandupResponse.find(query);
 
-    // console.log("Standups:", standups)
+    console.log("Standupjjjs:", standups);
 
     // Fetch the status for each standup in parallel
     const statusPromises = standups.map((standup) =>
@@ -84,7 +86,7 @@ export const getStandupStatus = async (slackChannelId: string, date: Date) => {
       }));
 
     const stats = {
-      channelId: slackChannelId,
+      slackChannelId: slackChannelId,
       date: selectedDate,
       participationRate: participationRate.toFixed(2) + "%",
       status: [...responders, ...nonResponders],
@@ -110,8 +112,6 @@ export const exportStandupData = async (req: Request, res: Response) => {
       );
     });
 
-    console.log("Standup Data:", standupData);
-
     const { standups, statuses } = standupData as {
       standups: any[];
       statuses: any[];
@@ -119,6 +119,13 @@ export const exportStandupData = async (req: Request, res: Response) => {
 
     console.log("Standups:", standups);
     console.log("Statuses:", statuses);
+
+    // get questions for the standupresponses being exported
+    const team = await Team.findOne({
+      slackChannelId: statuses[0].slackChannelId,
+    });
+
+    console.log("Find team's questions:", statuses[0].slackChannelId);
 
     if (standups.length === 0) {
       res
@@ -129,10 +136,14 @@ export const exportStandupData = async (req: Request, res: Response) => {
 
     const formattedData = standups.map((standup, index) => ({
       date: format(new Date(standup.date), "yyyy-MM-dd"),
-      teamId: standup.slackChannelId,
-      // userId: standup.userId,
-      responses: standup.responses,
-      status: statuses[index] || "unknown",
+      slackChannelId: standup.slackChannelId,
+      teamName: standup.teamName,
+      questions: team?.standUpConfig.questions.map((item) => item.text),
+      members: team?.members,
+      responses: JSON.stringify(
+        standup.responses.map((item: ResponsesTypes) => item.answer)
+      ),
+      status: JSON.stringify(statuses[index]) || "unknown",
     }));
 
     if (req.query.format === "json") {
@@ -147,17 +158,103 @@ export const exportStandupData = async (req: Request, res: Response) => {
 
       console.log("Trying csv:", formattedData);
 
-      // const csvStream = csvFormat.createWriteStream({ headers: true });
-      // const dataStream = csvFormat.write(formattedData, { headers: true });
-
-      // dataStream
-      //   .pipe(csvStream)
-      //   .pipe(res)
-      //   .on("error", (err) => {
-      //     res.status(500).json({ error: err.message });
-      //   });
+      writeToStream(res, formattedData, { headers: true })
+        .on("error", (err) => {
+          res.status(500).json({ error: err.message });
+        })
+        .on("finish", () => {
+          res.end();
+        });
     }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
+
+// // generating team reports
+// export const generateTeamReport = async (req: Request, res: Response) => {
+//   try {
+//     const { slackChannelId } = req.query;
+
+//     if (!slackChannelId) {
+//       res.status(400).json({ error: "slackChannelId is required" });
+//       return;
+//     }
+
+//     // get team details
+//     const team = await Team.findOne({ slackChannelId: slackChannelId });
+//     if (!team) {
+//       res.status(404).json({ error: "Team not found" });
+//       return;
+//     }
+
+//     // Find the first recorded standup for the team
+//     const firstStandup = await StandupResponse.findOne({ slackChannelId }).sort(
+//       {
+//         date: 1,
+//       }
+//     );
+//     if (!firstStandup) {
+//       res.status(404).json({ error: "No standup data found for this team" });
+//       return;
+//     }
+
+//     // Get all standup responses for the team
+//     const standups = await StandupResponse.find({ slackChannelId });
+
+//     // Group standups by date
+//     const participationReport: Record<string, any> = {};
+
+//     standups.forEach((standup) => {
+//       const date = format(new Date(standup.date), "yyyy-MM-dd");
+
+//       if (!participationReport[date]) {
+//         participationReport[date] = {
+//           responded: new Set(),
+//           missed: new Set(team.members),
+//         };
+//       }
+
+//       // Add responders
+//       participationReport[date].responded.add(standup.userId);
+//       participationReport[date].missed.delete(standup.userId);
+//     });
+
+//     // Calculate participation rates
+//     const reportData = Object.entries(participationReport).map(
+//       ([date, data]) => {
+//         const totalMembers = team.members.length;
+//         const respondedCount = data.responded.size;
+//         const participationRate =
+//           totalMembers > 0 ? (respondedCount / totalMembers) * 100 : 0;
+
+//         return {
+//           date,
+//           totalMembers,
+//           responded: respondedCount,
+//           missed: totalMembers - respondedCount,
+//           participationRate: `${participationRate.toFixed(2)}%`,
+//         };
+//       }
+//     );
+
+//     // JSON Response
+//     if (req.query.format === "json") {
+//       res.json({ team: slackChannelId, report: reportData });
+//       return;
+//     }
+
+//     // CSV Response
+//     res.setHeader("Content-Type", "text/csv");
+//     res.setHeader(
+//       "Content-Disposition",
+//       'attachment; filename="team_report.csv"'
+//     );
+
+//     writeToStream(res, reportData, { headers: true })
+//       .on("error", (err) => res.status(500).json({ error: err.message }))
+//       .on("finish", () => res.end());
+//   } catch (error: any) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };

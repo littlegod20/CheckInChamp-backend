@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { Team } from "../models/Team";
+import { format as csvFormat, writeToStream } from "@fast-csv/format";
+import { format } from "date-fns";
 
 import { web as slackClient } from "../config/slack";
 import schedule from "node-schedule";
@@ -266,114 +268,104 @@ export const deleteTeam = async (
   }
 };
 
-// Sending usual reminders to team's channel and members to remind them
-// async function scheduleChannelReminder(
-//   channel: string,
-//   text: string,
-//   scheduleTime: Date,
-//   url: string
-// ): Promise<void> {
-//   schedule.scheduleJob(scheduleTime, async () => {
-//     try {
-//       // Define the message with the button
-//       const message = {
-//         channel,
-//         text,
-//         blocks: [
-//           {
-//             type: "section",
-//             text: {
-//               type: "mrkdwn",
-//               text: "Please fill in for your standups",
-//             },
-//           },
-//           {
-//             type: "actions",
-//             elements: [
-//               {
-//                 type: "button",
-//                 text: {
-//                   type: "plain_text",
-//                   text: "Proceed to Fill",
-//                 },
-//                 url: url,
-//               },
-//             ],
-//           },
-//         ],
-//       };
+export const generateTeamReport = async (req: Request, res: Response) => {
+  try {
+    const { slackChannelId } = req.query;
 
-//       // Send reminder to the team channel with the button
-//       const channelResult = await slackClient.chat.postMessage(message);
-//       console.log(`Reminder sent to channel ${channel}:`, channelResult);
+    if (!slackChannelId) {
+      res.status(400).json({ error: "slackChannelId is required" });
+      return;
+    }
 
-//       // Find the team by channel ID to get the members
-//       const channelId = channel.toString();
-//       const team = await Team.findOne({ slackChannelId: channelId });
-//       if (team && team.members) {
-//         // Convert ObjectId to string and send reminders with the button
-//         for (const memberId of team.members.map((id: any) => id.toString())) {
-//           // Append memberId to the URL as a query parameter
-//           const memberUrl = `${url}?memberId=${memberId}`;
+    // Get team details
+    const team = await Team.findOne({ slackChannelId: slackChannelId }) as TeamDocumentTypes
+    if (!team) {
+      res.status(404).json({ error: "Team not found" });
+      return;
+    }
 
-//           // Create the member message with the modified URL
-//           const memberMessage = {
-//             ...message,
-//             channel: memberId,
-//             blocks: message.blocks.map((block) => {
-//               if (block.type === "actions") {
-//                 return {
-//                   ...block,
-//                   elements: block.elements?.map((element) => ({
-//                     ...element,
-//                     url: memberUrl, // Use the new URL with the memberId
-//                   })),
-//                 };
-//               }
-//               return block;
-//             }),
-//           };
+    // Get team creation date
+    // const teamCreationDate = format(new Date(team.createdAt), "yyyy-MM-dd") || null;
 
-//           const memberResult = await slackClient.chat.postMessage(
-//             memberMessage
-//           );
-//           console.log(`Reminder sent to member ${memberId}:`, memberResult);
-//         }
-//       } else {
-//         console.warn(
-//           `No team found with channel ID ${channel} or no members in the team.`
-//         );
-//       }
-//     } catch (error) {
-//       console.error(
-//         `Failed to send reminder to channel ${channel} or its members:`,
-//         error
-//       );
-//     }
-//   });
-// }
+    // Find the first recorded standup for the team
+    const firstStandup = await StandupResponse.findOne({ slackChannelId }).sort(
+      {
+        date: 1,
+      }
+    );
+    if (!firstStandup) {
+      res.status(404).json({ error: "No standup data found for this team" });
+      return;
+    }
 
-// // Set team reminder using arguments set in the post request
-// export function scheduleTeamReminder(req: Request, res: Response): void {
-//   const { channel, text, scheduleTime } = req.body;
+    // Get all standup responses for the team
+    const standups = await StandupResponse.find({ slackChannelId });
 
-//   const url = `http://localhost:5173/standup-answer/${channel}`;
-//   console.log(
-//     "Received POST /teams/team-reminder request with body:",
-//     req.body
-//   );
-//   try {
-//     const scheduleDate = new Date(scheduleTime); // Convert scheduleTime to Date object
-//     scheduleChannelReminder(channel, text, scheduleDate, url);
-//     res.status(201).json({ message: "Team reminder scheduled successfully" });
-//   } catch (error: any) {
-//     // Enhanced error logging
-//     console.error("Error in scheduleTeamReminder:", {
-//       message: error.message,
-//       stack: error.stack,
-//       body: req.body,
-//     });
+    // Group standups by date
+    const participationReport: Record<string, any> = {};
+    const standupDays = new Set();
+    const activeMembers = new Set();
 
-//     res.status(400).json({ error: error.message });
-//   }
-// }
+    standups.forEach((standup) => {
+      const date = format(new Date(standup.date), "yyyy-MM-dd");
+      standupDays.add(date);
+      activeMembers.add(standup.userId);
+
+      if (!participationReport[date]) {
+        participationReport[date] = {
+          responded: new Set(),
+          missed: new Set(team.members),
+        };
+      }
+
+      // Add responders
+      participationReport[date].responded.add(standup.userId);
+      participationReport[date].missed.delete(standup.userId);
+    });
+
+    // Calculate participation rates
+    const reportData = Object.entries(participationReport).map(
+      ([date, data]) => {
+        const totalMembers = team.members.length;
+        const respondedCount = data.responded.size;
+        const participationRate =
+          totalMembers > 0 ? (respondedCount / totalMembers) * 100 : 0;
+
+        return {
+          date,
+          totalMembers,
+          responded: respondedCount,
+          missed: totalMembers - respondedCount,
+          participationRate: `${participationRate.toFixed(2)}%`,
+        };
+      }
+    );
+
+    const responsePayload = {
+      team: slackChannelId,
+      // teamCreationDate,
+      totalStandupDays: standupDays.size,
+      activeMembers: Array.from(activeMembers),
+      report: reportData,
+    };
+
+    // JSON Response
+    if (req.query.format === "json") {
+      res.json(responsePayload);
+      return;
+    }
+
+    // CSV Response
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="team_report.csv"'
+    );
+
+    writeToStream(res, reportData, { headers: true })
+      .on("error", (err) => res.status(500).json({ error: err.message }))
+      .on("finish", () => res.end());
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
