@@ -36,10 +36,10 @@ export const handleModalSubmission = async (payload: any) => {
 
         // Find the corresponding question from team's questions
         const questionId = blockId.replace("question_", "");
-        console.log("questionId:", questionId)
+        console.log("questionId:", questionId);
         const questionDetails = teamQuestions.find((q) => q.id === questionId);
 
-        console.log("QuestionDets:", questionDetails);
+        // console.log("QuestionDets:", questionDetails);
         if (!questionDetails) {
           console.error(`No question found for block ID: ${blockId}`);
           return null;
@@ -80,7 +80,7 @@ export const handleModalSubmission = async (payload: any) => {
         standupId: standupId,
       });
 
-      console.log("StandupDoc:", standupDoc);
+      // console.log("StandupDoc:", standupDoc);
 
       if (standupDoc) {
         // Add response to the database
@@ -118,7 +118,7 @@ export const handleModalSubmission = async (payload: any) => {
 
         await slackClient.chat.postMessage({
           channel: userId,
-          text: "Thank you for submitting your standup responses!",
+          text: `Thank you for submitting your standup responses for <#${teamDoc.slackChannelId}|${teamDoc.name}>`,
         });
       } else {
         console.error("Standup document not found.");

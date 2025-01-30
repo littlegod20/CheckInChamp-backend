@@ -3,6 +3,7 @@ import { Team } from "../models/Team";
 
 import { web as slackClient } from "../config/slack";
 import schedule from "node-schedule";
+import { StandupResponse } from "../models/StandUpResponses";
 // A map to store scheduled jobs for each channel
 const channelJobs = new Map<string, schedule.Job[]>();
 
@@ -234,11 +235,21 @@ export const deleteTeam = async (
       return;
     }
 
-    res
-      .status(200)
-      .json({
-        message: `Team with Slack ID ${slackChannelId} deleted successfully`,
+    // find all standup responses for that team and delete it
+    const standupResponses = await StandupResponse.findOneAndDelete({
+      slackChannelId: slackChannelId,
+    });
+
+    if (!standupResponses) {
+      res.status(200).json({
+        message: `Team with Slack ID ${slackChannelId} deleted successfully. No stand up responses found`,
       });
+      return;
+    } else {
+      res.status(404).json({
+        message: `Team with SlackId ${slackChannelId} deleted with along with its standup responses`,
+      });
+    }
   } catch (error: any) {
     // Enhanced error logging
     console.error("Error in deleteTeam:", {
