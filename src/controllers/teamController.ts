@@ -51,7 +51,10 @@ export const createTeam = async (
       timezone,
     });
 
-    const channelName = `team-${team.name.toLowerCase().replace(/\s+/g, "-")}`; // Format channel name
+    const channelName = `team-${team.name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`; // Format channel name
     const slackChannelResponse = await slackClient.conversations.create({
       name: channelName,
       is_private: false, // Set to `false` if you want it to be a public channel

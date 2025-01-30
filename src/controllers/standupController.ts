@@ -110,6 +110,8 @@ export const exportStandupData = async (req: Request, res: Response) => {
       );
     });
 
+    console.log("Standup Data:", standupData);
+
     const { standups, statuses } = standupData as {
       standups: any[];
       statuses: any[];
@@ -129,8 +131,8 @@ export const exportStandupData = async (req: Request, res: Response) => {
       date: format(new Date(standup.date), "yyyy-MM-dd"),
       teamId: standup.slackChannelId,
       // userId: standup.userId,
-      response: standup.response,
-      status: statuses[index]?.status || "unknown",
+      responses: standup.responses,
+      status: statuses[index] || "unknown",
     }));
 
     if (req.query.format === "json") {

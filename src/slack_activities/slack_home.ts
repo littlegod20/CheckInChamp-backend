@@ -34,7 +34,6 @@ export const home_pub = () => {
                 },
               ],
             },
-
           ],
         },
       });
