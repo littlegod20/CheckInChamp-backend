@@ -1,4 +1,4 @@
-import { format as csvFormat, writeToStream } from "@fast-csv/format";
+import { writeToStream } from "@fast-csv/format";
 import { format } from "date-fns";
 import { Request, Response } from "express";
 import { Team } from "../models/Team";

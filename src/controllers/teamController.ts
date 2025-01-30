@@ -1,13 +1,9 @@
 import { Request, Response } from "express";
 import { Team } from "../models/Team";
-import { format as csvFormat, writeToStream } from "@fast-csv/format";
+import { writeToStream } from "@fast-csv/format";
 import { format } from "date-fns";
-
 import { web as slackClient } from "../config/slack";
-import schedule from "node-schedule";
 import { StandupResponse } from "../models/StandUpResponses";
-// A map to store scheduled jobs for each channel
-const channelJobs = new Map<string, schedule.Job[]>();
 
 //function required to create a team
 export const createTeam = async (
@@ -96,39 +92,6 @@ export const createTeam = async (
   }
 };
 
-// function for testing channel creation
-export const createChannel = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const slackChannelResponse = await slackClient.conversations.create({
-      name: "watchdogs",
-      is_private: false,
-    });
-
-    //invite your slack user to the channel
-    await slackClient.conversations.invite({
-      channel: slackChannelResponse.channel?.id as string,
-      users: "U08B0A92VQQ",
-    });
-
-    console.log("Slack channel creation response:", slackChannelResponse);
-    res.status(201).json({
-      message: "Channel created successfully",
-      slackChannel: slackChannelResponse.channel,
-    });
-  } catch (error: any) {
-    // Enhanced error logging
-    console.error("Error in createChannel:", {
-      message: error.message,
-      stack: error.stack,
-    });
-
-    res.status(400).json({ error: error.message });
-  }
-};
-
 // function for channel deletion
 export const deleteChannel = async (
   req: Request,
@@ -178,34 +141,6 @@ export const getTeams = async (req: Request, res: Response): Promise<void> => {
     res.status(400).json({ error: error.message });
   }
 };
-
-// //get all teams and the questions attached to them
-// export const getTeamsWithQuestions = async (
-//   req: Request,
-//   res: Response
-// ): Promise<void> => {
-//   try {
-//     const teams = await Team.find();
-//     const teamsWithQuestions = await Promise.all(
-//       teams.map(async (team) => {
-//         const questions = await Question.find({ team: team.slackChannelId });
-//         return {
-//           team,
-//           questions,
-//         };
-//       })
-//     );
-//     res.json(teamsWithQuestions);
-//   } catch (error: any) {
-//     // Enhanced error logging
-//     console.error("Error in getTeamsWithQuestions:", {
-//       message: error.message,
-//       stack: error.stack,
-//     });
-
-//     res.status(400).json({ error: error.message });
-//   }
-// };
 
 // Function required to delete a team
 export const deleteTeam = async (
@@ -278,7 +213,9 @@ export const generateTeamReport = async (req: Request, res: Response) => {
     }
 
     // Get team details
-    const team = await Team.findOne({ slackChannelId: slackChannelId }) as TeamDocumentTypes
+    const team = (await Team.findOne({
+      slackChannelId: slackChannelId,
+    })) as TeamDocumentTypes;
     if (!team) {
       res.status(404).json({ error: "Team not found" });
       return;
