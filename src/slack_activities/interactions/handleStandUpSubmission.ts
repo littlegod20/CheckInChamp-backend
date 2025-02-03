@@ -60,6 +60,9 @@ export const handleModalSubmission = async (payload: any) => {
           case "checkboxes":
             answer = inputData.selected_options?.map((opt: any) => opt.value);
             break;
+          case "multi_static_select":
+            answer = inputData.selected_options?.map((opt: any) => opt.value);
+            break;
           default:
             answer = null;
         }
@@ -80,24 +83,37 @@ export const handleModalSubmission = async (payload: any) => {
         standupId: standupId,
       });
 
-      // console.log("StandupDoc:", standupDoc);
+      console.log("StandupDoc:", standupDoc);
 
       if (standupDoc) {
         // Add response to the database
 
-        // Store the `ts` in the database for later use
         await StandupResponse.updateOne(
-          { slackChannelId: slackChannelId }, // Query
+          { standupId: standupId }, // Query
           {
-            $set: {
-              userId,
-              responses: answers,
-              date: today,
-              responseTime,
+            $push: {
+              responses: {
+                userId: userId,
+                answers: answers,
+                responseTime: responseTime,
+              },
             },
-          },
-          { upsert: true } // create if not found
+          }
         );
+
+        // // Store the `ts` in the database for later use
+        // await StandupResponse.updateOne(
+        //   { slackChannelId: slackChannelId }, // Query
+        //   {
+        //     $set: {
+        //       userId,
+        //       responses: answers,
+        //       date: today,
+        //       responseTime,
+        //     },
+        //   },
+        //   { upsert: true } // create if not found
+        // );
 
         // Get the `ts` of the initial standup message
         const standupMessageTs = standupDoc?.messageTs;

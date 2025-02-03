@@ -246,7 +246,7 @@ export const generateTeamReport = async (req: Request, res: Response) => {
     standups.forEach((standup) => {
       const date = format(new Date(standup.date), "yyyy-MM-dd");
       standupDays.add(date);
-      activeMembers.add(standup.userId);
+      // activeMembers.add(standup.userId);
 
       if (!participationReport[date]) {
         participationReport[date] = {
@@ -256,8 +256,8 @@ export const generateTeamReport = async (req: Request, res: Response) => {
       }
 
       // Add responders
-      participationReport[date].responded.add(standup.userId);
-      participationReport[date].missed.delete(standup.userId);
+      // participationReport[date].responded.add(standup.userId);
+      // participationReport[date].missed.delete(standup.userId);
     });
 
     // Calculate participation rates
@@ -363,7 +363,7 @@ export const updateTeam = async (
     // If members are updated, update the Slack channel members
     if (members && members.length > 0) {
       try {
-        // First, get current channel members
+        // Get current channel members
         const channelInfo = await slackClient.conversations.members({
           channel: slackChannelId,
         });
@@ -379,6 +379,25 @@ export const updateTeam = async (
               channel: slackChannelId,
               users: newMembers.join(","),
             });
+          }
+
+          // Remove members that are no longer part of the team 
+          const removedMembers = channelInfo.members.filter(
+            (memberId: string) => !members.includes(memberId)
+          );
+
+          for (const memberId of removedMembers) {
+            try {
+              await slackClient.conversations.kick({
+                channel: slackChannelId,
+                user: memberId,
+              });
+            } catch (removalError: any) {
+              console.error(
+                `Error removing member ${memberId} from Slack channel:`,
+                removalError
+              );
+            }
           }
         }
       } catch (slackError: any) {

@@ -52,7 +52,7 @@ export const handleButtonClick = async (payload: any) => {
 
     if (standupDoc) {
       const hasRespondedToday =
-        standupDoc.userId === userId &&
+        standupDoc.responses.some(response => response.userId === userId) &&
         new Date(standupDoc.date).toISOString().split("T")[0] === today;
 
       if (hasRespondedToday) {

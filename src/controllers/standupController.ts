@@ -53,12 +53,18 @@ export const getStandupStatus = async (slackChannelId: string, date: Date) => {
     });
 
     // Extract user IDs of those who responded
-    const respondedUserIds = standups.map((standup) => standup.userId);
+    // Extract user IDs of those who responded
+    const respondedUserIds = standups
+      .flatMap((standup) =>
+        standup.responses.map((response) => response.userId)
+      ) // Extract userId from responses
+      .filter((userId, index, self) => self.indexOf(userId) === index); // Remove duplicates
+    // const respondedUserIds = standups.map((standup) => standup.userId);
 
     // Get the team and its members
-    const team = await Team.findOne({ slackChannelId: slackChannelId }).select(
-      "members"
-    );
+    const team = await Team.findOne({ slackChannelId: slackChannelId })
+      .select("members")
+      .select("name");
     console.log("ChannelId:", slackChannelId);
     console.log("Team:", team);
     if (!team) {
@@ -87,6 +93,7 @@ export const getStandupStatus = async (slackChannelId: string, date: Date) => {
 
     const stats = {
       slackChannelId: slackChannelId,
+      teamName: team.name,
       date: selectedDate,
       participationRate: participationRate.toFixed(2) + "%",
       status: [...responders, ...nonResponders],
