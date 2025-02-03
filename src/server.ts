@@ -25,6 +25,7 @@ import { initializeSchedules } from "./helpers/initializeSchedule";
 import { listenForTeamUpdates } from "./helpers/listenForTeamUpdates";
 import { handleButtonClick } from "./slack_activities/interactions/handleRespondStandupBtn";
 import { handleModalSubmission } from "./slack_activities/interactions/handleStandUpSubmission";
+import { scheduleReminder } from "./helpers/scheduleReminder";
 
 dotenv.config();
 
@@ -37,12 +38,6 @@ connectDB();
 
 // Health check endpoint
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-//a simple root route to the backend
-app.get("/", (req, res) => {
-  console.log("health check");
-  res.send("ok");
-});
 
 // Register the action handler for button clicks
 slackApp.action(/standup_/, async ({ body, ack }) => {

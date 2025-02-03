@@ -2,6 +2,7 @@ import { WebClient } from "@slack/web-api";
 // import  getDocumentByField  from "./getDocumentByField";
 import { Team } from "../models/Team";
 import { StandupResponse } from "../models/StandUpResponses";
+import { convert12hrTo24hr } from "./convert12hrTo24hr";
 
 // Initialize Slack client
 const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
@@ -16,18 +17,16 @@ export const sendStandupReminders = async (
       slackChannelId: slackChannelId,
     })) as unknown as TeamDocumentTypes[];
 
-
     if (!teamDoc) {
       console.error("Team not found!");
       return;
     }
 
-    const teamData = teamDoc[0]
+    const teamData = teamDoc[0];
 
     console.log("Team Doc From Reminders:", teamData);
 
-    const reminderTimes = teamData.standUpConfig.reminderTimes;
-
+    const reminderTimes = teamData.standUpConfig.reminderTimes
     console.log("reminderTimes:", reminderTimes);
 
     if (!reminderTimes || reminderTimes.length === 0) {
@@ -52,6 +51,7 @@ export const sendStandupReminders = async (
       console.log("Nothing in responses. Sending reminder to all members...");
       // get all users, and send reminder
       for (const reminderTime of reminderTimes) {
+        console.log("reminderTime:", reminderTime);
         const reminderDateTime = new Date(`${today}T${reminderTime}:00Z`);
         console.log("now:", now, "\n", "reminderDateTime:", reminderDateTime);
         if (

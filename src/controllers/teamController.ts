@@ -25,7 +25,7 @@ export const createTeam = async (
       !timezone
     ) {
       res.status(400).json({
-        error: "Please provide name, members, standUpQuestions, and timezone",
+        error: "Please provide name, members, standUpConfig, and timezone",
         data: req.body,
       });
       return;
@@ -304,5 +304,102 @@ export const generateTeamReport = async (req: Request, res: Response) => {
       .on("finish", () => res.end());
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+// UpdateTeam
+export const updateTeam = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { slackChannelId, name, members, standUpConfig, timezone } = req.body;
+
+  try {
+    // Check if the team exists
+    const existingTeam = await Team.findOne({ slackChannelId });
+    if (!existingTeam) {
+      res
+        .status(404)
+        .json({
+          error: `Team with slackChannelId ${slackChannelId} not found`,
+        });
+      return;
+    }
+
+    // Create update object with only provided fields
+    const updateData: any = {};
+    if (name) updateData.name = name;
+    if (members) updateData.members = members;
+    if (standUpConfig) updateData.standUpConfig = standUpConfig;
+    if (timezone) updateData.timezone = timezone;
+
+    // If there's nothing to update
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ error: "No valid update fields provided" });
+      return;
+    }
+
+    // If name is being updated, check if the new name already exists
+    if (name && name !== existingTeam.name) {
+      const nameExists = await Team.findOne({
+        name,
+        slackChannelId: { $ne: slackChannelId },
+      });
+      if (nameExists) {
+        res
+          .status(400)
+          .json({ error: `Team with name ${name} already exists` });
+        return;
+      }
+    }
+
+    // Update team
+    const updatedTeam = await Team.findOneAndUpdate(
+      { slackChannelId },
+      updateData,
+      { new: true } // Return the updated document
+    );
+
+    // If members are updated, update the Slack channel members
+    if (members && members.length > 0) {
+      try {
+        // First, get current channel members
+        const channelInfo = await slackClient.conversations.members({
+          channel: slackChannelId,
+        });
+
+        if (channelInfo.ok && channelInfo.members) {
+          // Invite new members
+          const newMembers = members.filter(
+            (memberId: string) => !channelInfo.members?.includes(memberId)
+          );
+
+          if (newMembers.length > 0) {
+            await slackClient.conversations.invite({
+              channel: slackChannelId,
+              users: newMembers.join(","),
+            });
+          }
+        }
+      } catch (slackError: any) {
+        console.error("Error updating Slack channel members:", slackError);
+        // Continue with the response as the team update was successful
+      }
+    }
+
+    res.status(200).json({
+      message: "Team updated successfully",
+      team: updatedTeam,
+    });
+  } catch (error: any) {
+    console.error("Error in updateTeam:", {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
+
+    res.status(500).json({
+      error: error.message || "An error occurred while updating the team",
+    });
   }
 };
