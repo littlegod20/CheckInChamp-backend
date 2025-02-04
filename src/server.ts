@@ -1,8 +1,9 @@
 import express from "express";
-import dotenv from "dotenv";
+import {config} from "dotenv";
 import teamRoutes from "./routes/teamRoutes";
 import memberRoutes from "./routes/memberRoutes";
 import standupRoutes from "./routes/standupRoutes";
+import moodRoutes from './routes/moodRoutes'
 import { connectDB } from "./config/database";
 import { slackApp } from "./config/slack";
 import {
@@ -25,9 +26,9 @@ import { initializeSchedules } from "./helpers/initializeSchedule";
 import { listenForTeamUpdates } from "./helpers/listenForTeamUpdates";
 import { handleButtonClick } from "./slack_activities/interactions/handleRespondStandupBtn";
 import { handleModalSubmission } from "./slack_activities/interactions/handleStandUpSubmission";
-import { scheduleReminder } from "./helpers/scheduleReminder";
 
-dotenv.config();
+
+config()
 
 const app = express();
 app.use(express.json());
@@ -61,6 +62,7 @@ slackApp.view("standup_submission", async ({ ack, body, client }) => {
 
 // Register routes
 app.use("/api/teams", teamRoutes);
+app.use("/api/mood", moodRoutes)
 app.use("/api/members", memberRoutes);
 app.use("/api/standups", standupRoutes);
 app.use((req, res) => {
