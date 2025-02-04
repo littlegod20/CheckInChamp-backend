@@ -42,9 +42,7 @@ export const getStandupStatus = async (slackChannelId: string, date: Date) => {
       return { error: "slackChannelId is required" };
     }
 
-    const selectedDate = date
-      ? new Date(date).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0];
+    const selectedDate = date ? date : new Date().toISOString();
 
     // Find all standup responses for the selected date
     const standups = await StandupResponse.find({
@@ -52,7 +50,7 @@ export const getStandupStatus = async (slackChannelId: string, date: Date) => {
       date: selectedDate,
     });
 
-    // Extract user IDs of those who responded
+    console.log("before respondedUserIds:", standups);
     // Extract user IDs of those who responded
     const respondedUserIds = standups
       .flatMap((standup) =>
@@ -64,9 +62,12 @@ export const getStandupStatus = async (slackChannelId: string, date: Date) => {
     // Get the team and its members
     const team = await Team.findOne({ slackChannelId: slackChannelId })
       .select("members")
-      .select("name");
+      .select("name")
+      .select("standUpConfig.questions");
+
     console.log("ChannelId:", slackChannelId);
     console.log("Team:", team);
+
     if (!team) {
       return { error: "Team not found" };
     }
@@ -91,12 +92,15 @@ export const getStandupStatus = async (slackChannelId: string, date: Date) => {
         status: "missed",
       }));
 
+    // Include questions and standup _id in the response
     const stats = {
       slackChannelId: slackChannelId,
       teamName: team.name,
       date: selectedDate,
       participationRate: participationRate.toFixed(2) + "%",
       status: [...responders, ...nonResponders],
+      questions: team.standUpConfig.questions, // Include questions from team's standUpConfig
+      _id: standups.map((standup) => standup._id), // Include _id of standup responses
     };
 
     return stats;
@@ -141,17 +145,38 @@ export const exportStandupData = async (req: Request, res: Response) => {
       return;
     }
 
-    const formattedData = standups.map((standup, index) => ({
-      date: format(new Date(standup.date), "yyyy-MM-dd"),
-      slackChannelId: standup.slackChannelId,
-      teamName: standup.teamName,
-      questions: team?.standUpConfig.questions.map((item) => item.text),
-      members: team?.members,
-      responses: JSON.stringify(
-        standup.responses.map((item: ResponsesTypes) => item.answer)
-      ),
-      status: JSON.stringify(statuses[index]) || "unknown",
-    }));
+    const formattedData = standups.flatMap((standup, index) => {
+      const status = statuses[index];
+      const questions = team?.standUpConfig.questions || [];
+      const members = team?.members || [];
+
+      return standup.responses.map((response: any) => {
+        // Create base object
+        const base = {
+          date: format(new Date(standup.date), "yyyy-MM-dd"),
+          slackChannelId: standup.slackChannelId,
+          teamName: standup.teamName,
+          participationRate: status.participationRate,
+        };
+
+        // Add questions and answers
+        const qa = questions.reduce((acc: any, question: any, idx: number) => {
+          acc[`Q${idx + 1}`] = response.answers[idx]?.answer || "No response";
+          return acc;
+        }, {});
+
+        // Add user info
+        const user = {
+          userId: response.userId,
+          responseTime: response.responseTime,
+          status:
+            status.status.find((s: any) => s.userId === response.userId)
+              ?.status || "unknown",
+        };
+
+        return { ...base, ...user, ...qa };
+      });
+    });
 
     if (req.query.format === "json") {
       res.json({ standups: formattedData });

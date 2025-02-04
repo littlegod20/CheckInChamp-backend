@@ -155,32 +155,21 @@ export const scheduleStandUpMessage = (
               console.error("reminder times not initialized");
               return;
             }
-            // Store the `messageTs` in the database
-            await StandupResponse.create({
-              messageTs: message.ts, // Store the timestamp of the standup message
-              slackChannelId: slackChannelId,
-              teamName: teamData.name,
-              standupId: standupId,
-              date: new Date().toISOString().split("T")[0], // Store the date of the standup
-            });
-            // // Store the `ts` in the database for later use
-            // await StandupResponse.updateOne(
-            //   {
-            //     messageTs: standupMessageTs,
-            //     slackChannelId: slackChannelId,
-            //     teamName: teamData.name,
-            //     standupId: standupId,
-            //   }, // Query
-            //   {
-            //     $set: {
-            //       messageTs: standupMessageTs,
-            //       slackChannelId: slackChannelId,
-            //       teamName: teamData.name,
-            //       standupId: standupId,
-            //     },
-            //   },
-            //   { upsert: true } // create if not found
-            // );
+            // Create a new StandupResponse document if it doesn't exist
+            await StandupResponse.updateOne(
+              { standupId: standupId }, // Query
+              {
+                $setOnInsert: {
+                  messageTs: message.ts, // Store the timestamp of the standup message
+                  slackChannelId: slackChannelId,
+                  teamName: teamData.name,
+                  standupId: standupId,
+                  date: new Date().toISOString(), // Store the date of the standup
+                  responses: [], // Initialize responses array
+                },
+              },
+              { upsert: true } // Create if not found
+            );
           } catch (error) {
             console.error(
               `Error in standup job for Team: ${teamData.name}, Standup ID: ${standupId}, channelID: ${slackChannelId}`,
