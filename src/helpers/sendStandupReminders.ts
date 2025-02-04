@@ -1,16 +1,11 @@
 import { WebClient } from "@slack/web-api";
-// import  getDocumentByField  from "./getDocumentByField";
 import { Team } from "../models/Team";
 import { StandupResponse } from "../models/StandUpResponses";
 import { convert12hrTo24hr } from "./convert12hrTo24hr";
-import { DateTime } from "luxon";
 
 // Initialize Slack client
 const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
 
-// export const convert12hrTo24hr = (time12h: string): string => {
-//   return DateTime.fromFormat(time12h, "hh:mm a").toFormat("HH:mm");
-// };
 
 export const sendStandupReminders = async (
   slackChannelId: string,
