@@ -28,12 +28,26 @@ export const home_pub = () => {
                   type: "button",
                   text: {
                     type: "plain_text",
-                    text: "Manage Your Teams",
+                    text: "Manage  Teams",
                   },
                   url: "http://localhost:5173/",
                 },
               ],
             },
+            {
+              type: "actions",
+              elements: [
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "Give Kudos",
+                  },
+                  action_id: "open_kudos_modal",
+                },
+              ],
+            },
+
           ],
         },
       });
