@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import teamRoutes from "./routes/teamRoutes";
 import memberRoutes from "./routes/memberRoutes";
 import standupRoutes from "./routes/standupRoutes";
+import kudosRoutes from "./routes/kudosRoutes";
 import { connectDB } from "./config/database";
 import { slackApp } from "./config/slack";
 import {
@@ -10,6 +11,8 @@ import {
   greetingRespond,
 } from "./slack_activities/interactions";
 import { home_pub } from "./slack_activities/slack_home";
+import "./slack_activities/kudos_actions";
+
 
 import {
   cacheMembersInRedis,
@@ -63,6 +66,7 @@ slackApp.view("standup_submission", async ({ ack, body, client }) => {
 app.use("/api/teams", teamRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/standups", standupRoutes);
+app.use("/api/kudos", kudosRoutes);
 app.use((req, res) => {
   res.status(404).send(`Route not found: ${req.method} ${req.url}`);
 });
