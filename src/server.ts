@@ -25,10 +25,10 @@ import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swaggerConfig";
 import { initializeSchedules } from "./helpers/initializeSchedule";
-import channelRoutes from "./routes/channelRoutes";
 import { listenForTeamUpdates } from "./helpers/listenForTeamUpdates";
 import { handleButtonClick } from "./slack_activities/interactions/handleRespondStandupBtn";
 import { handleModalSubmission } from "./slack_activities/interactions/handleStandUpSubmission";
+import { scheduleReminder } from "./helpers/scheduleReminder";
 
 dotenv.config();
 
@@ -41,15 +41,6 @@ connectDB();
 
 // Health check endpoint
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-//a simple root route to the backend
-app.get("/", (req, res) => {
-  console.log("health check");
-  res.send("ok");
-});
-
-// testing channel creation
-app.use("/api/channel", channelRoutes);
 
 // Register the action handler for button clicks
 slackApp.action(/standup_/, async ({ body, ack }) => {
@@ -100,9 +91,9 @@ home_pub();
     await slackApp.start(SLACK_PORT);
     initializeSchedules();
     listenForTeamUpdates();
-    console.log(`⚡️ FlowSync app is running on port ${SLACK_PORT}`);
+    console.log(`⚡️ Check In app is running on port ${SLACK_PORT}`);
   } catch (error) {
-    console.error("Error starting FlowSync app:", error);
+    console.error("Error starting Check In app:", error);
     process.exit(1);
   }
 })();
