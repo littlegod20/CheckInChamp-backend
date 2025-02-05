@@ -1,10 +1,25 @@
 import express from "express";
-import { createMood, getMoods } from "../controllers/moodControllers";
+import {
+  createMoodResponse,
+  createMoodTime,
+  deleteMoodTime,
+  getMoodResponses,
+  getMoodTime,
+  // handleMoodInteraction,
+} from "../controllers/moodControllers";
 
 const router = express.Router();
 
-router.get("/", getMoods);
+router.get("/", getMoodResponses);
 
-router.post("/checkIn", createMood);
+router.post("/checkIn", createMoodResponse);
+
+router.post("/", createMoodTime);
+
+// router.post("/interaction", handleMoodInteraction);
+
+router.delete("/", deleteMoodTime);
+
+router.get("/times", getMoodTime)
 
 export default router;

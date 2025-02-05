@@ -1,9 +1,9 @@
 import express from "express";
-import {config} from "dotenv";
+import { config } from "dotenv";
 import teamRoutes from "./routes/teamRoutes";
 import memberRoutes from "./routes/memberRoutes";
 import standupRoutes from "./routes/standupRoutes";
-import moodRoutes from './routes/moodRoutes'
+import moodRoutes from "./routes/moodRoutes";
 import { connectDB } from "./config/database";
 import { slackApp } from "./config/slack";
 import {
@@ -27,8 +27,12 @@ import { listenForTeamUpdates } from "./helpers/listenForTeamUpdates";
 import { handleButtonClick } from "./slack_activities/interactions/handleRespondStandupBtn";
 import { handleModalSubmission } from "./slack_activities/interactions/handleStandUpSubmission";
 
+import {
+  initializeMoodCheckIns,
+} from "./services/moodService";
+import { handleMoodSelection } from "./controllers/moodControllers";
 
-config()
+config();
 
 const app = express();
 app.use(express.json());
@@ -60,9 +64,15 @@ slackApp.view("standup_submission", async ({ ack, body, client }) => {
   }
 });
 
+slackApp.action(/^mood_selection_.*/, async ({ body, ack }) => {
+  await ack();
+
+  await handleMoodSelection(body);
+});
+
 // Register routes
 app.use("/api/teams", teamRoutes);
-app.use("/api/mood", moodRoutes)
+app.use("/api/mood", moodRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/standups", standupRoutes);
 app.use((req, res) => {
@@ -89,6 +99,13 @@ home_pub();
     await slackApp.start(SLACK_PORT);
     initializeSchedules();
     listenForTeamUpdates();
+    initializeMoodCheckIns()
+      .then(() =>
+        console.log("Mood check-ins initialized and listening for updates")
+      )
+      .catch((error) =>
+        console.error("Failed to initialize mood check-ins:", error)
+      );
     console.log(`⚡️ Check In app is running on port ${SLACK_PORT}`);
   } catch (error) {
     console.error("Error starting Check In app:", error);

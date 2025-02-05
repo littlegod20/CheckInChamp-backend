@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const moodSchema = new Schema({
+const moodResponseSchema = new Schema({
   userId: String,
   userName: String,
   teamName: String,
@@ -9,4 +9,4 @@ const moodSchema = new Schema({
   date: Date,
 });
 
-export const Mood = mongoose.model("mood", moodSchema);
+export const MoodResponse = mongoose.model("moodResponse", moodResponseSchema);
