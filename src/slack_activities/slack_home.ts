@@ -1,7 +1,6 @@
 import { slackApp } from "../config/slack";
 
 export const home_pub = () => {
-  // Add event listener for app_home_opened events
   slackApp.event("app_home_opened", async ({ event, client }) => {
     try {
       await client.views.publish({
@@ -12,24 +11,15 @@ export const home_pub = () => {
           blocks: [
             {
               type: "section",
-              text: {
-                type: "mrkdwn",
-                text: "Welcome to *Check In Champ*! 🎉",
-              },
+              text: { type: "mrkdwn", text: "Welcome to *Check In Champ*! 🎉" },
             },
-            {
-              type: "divider",
-            },
-
+            { type: "divider" },
             {
               type: "actions",
               elements: [
                 {
                   type: "button",
-                  text: {
-                    type: "plain_text",
-                    text: "Manage  Teams",
-                  },
+                  text: { type: "plain_text", text: "Manage Teams" },
                   url: "http://localhost:5173/",
                 },
               ],
@@ -39,15 +29,17 @@ export const home_pub = () => {
               elements: [
                 {
                   type: "button",
-                  text: {
-                    type: "plain_text",
-                    text: "Give Kudos",
-                  },
+                  text: { type: "plain_text", text: "Give Kudos" },
                   action_id: "open_kudos_modal",
+                },
+                {
+                  type: "button",
+                  text: { type: "plain_text", text: "📊 Create Poll" },
+                  action_id: "open_create_poll_modal", // Button for opening poll modal
+                  style: "primary",
                 },
               ],
             },
-
           ],
         },
       });
