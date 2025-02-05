@@ -5,6 +5,7 @@ import memberRoutes from "./routes/memberRoutes";
 import standupRoutes from "./routes/standupRoutes";
 import moodRoutes from "./routes/moodRoutes";
 import kudosRoutes from "./routes/kudosRoutes";
+import pollRoutes from "./routes/pollRoutes";
 import { connectDB } from "./config/database";
 import { slackApp } from "./config/slack";
 import {
@@ -13,6 +14,7 @@ import {
 } from "./slack_activities/interactions";
 import { home_pub } from "./slack_activities/slack_home";
 import "./slack_activities/kudos_actions";
+import "./slack_activities/pollActions";
 
 
 import {
@@ -79,6 +81,7 @@ app.use("/api/mood", moodRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/standups", standupRoutes);
 app.use("/api/kudos", kudosRoutes);
+app.use("/api/polls",pollRoutes);
 app.use((req, res) => {
   res.status(404).send(`Route not found: ${req.method} ${req.url}`);
 });

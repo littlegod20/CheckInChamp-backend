@@ -92,41 +92,47 @@ export const getKudos = async (req: Request, res: Response) => {
   };
 // ✅ Function to Get Monthly Leaderboard
 export const getLeaderboard = async (req: Request, res: Response) => {
-    try {
+  try {
+      // Get the first day of the current month at 00:00:00
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
-  
+
+      // Get the current date and time
+      const now = new Date();
+
+      // Aggregate kudos received within the entire month
       const leaderboard = await Kudos.aggregate([
-        { $match: { timestamp: { $gte: startOfMonth } } },
-        { $group: { _id: "$receiverId", kudosCount: { $sum: 1 } } },
-        { $sort: { kudosCount: -1 } },
-        { $limit: 10 }
+          { $match: { timestamp: { $gte: startOfMonth, $lte: now } } },
+          { $group: { _id: "$receiverId", kudosCount: { $sum: 1 } } },
+          { $sort: { kudosCount: -1 } },
+          { $limit: 10 }
       ]);
-  
+
       // Fetch Slack user names for each receiverId
       const fetchSlackUser = async (userId: string) => {
-        try {
-          const response = await slackApp.client.users.info({ user: userId });
-          return response.user?.real_name || "Unknown User";
-        } catch (error) {
-          console.error(`Error fetching Slack user ${userId}:`, error);
-          return "Unknown User";
-        }
+          try {
+              const response = await slackApp.client.users.info({ user: userId });
+              return response.user?.real_name || "Unknown User";
+          } catch (error) {
+              console.error(`Error fetching Slack user ${userId}:`, error);
+              return "Unknown User";
+          }
       };
-  
+
       // Replace receiverId with actual Slack user names
       const leaderboardWithNames = await Promise.all(
-        leaderboard.map(async (entry) => ({
-          userId: entry._id,
-          name: await fetchSlackUser(entry._id),
-          kudosCount: entry.kudosCount,
-        }))
+          leaderboard.map(async (entry, index) => ({
+              rank: index + 1, // Assign ranking based on position
+              userId: entry._id,
+              name: await fetchSlackUser(entry._id),
+              kudosCount: entry.kudosCount,
+          }))
       );
-  
+
       res.status(200).json(leaderboardWithNames);
-    } catch (error) {
+  } catch (error) {
       console.error("Error fetching leaderboard:", error);
       res.status(500).json({ error: "Internal Server Error" });
-    }
-  };
+  }
+};
