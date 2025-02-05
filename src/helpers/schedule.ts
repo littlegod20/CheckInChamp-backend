@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import { config } from "dotenv";
 import { scheduleReminder } from "./scheduleReminder";
 import { StandupResponse } from "../models/StandUpResponses";
+import { convert12hrTo24hr } from "./convert12hrTo24hr";
 
 config();
 
@@ -20,6 +21,11 @@ export const scheduleStandUpMessage = (
   slackChannelId: string,
   teamData: TeamDocumentTypes
 ) => {
+  console.log(
+    "Server timezone:",
+    Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
+
   const timezone = teamData.timezone || "GMT";
 
   const { standUpDays, standUpTimes, reminderTimes } = teamData.standUpConfig;
@@ -54,117 +60,137 @@ export const scheduleStandUpMessage = (
   const standupId = `${Date.now()}`;
 
   standUpDays.forEach((day: string) => {
-    const dayOfWeek = DateTime.fromFormat(day, "cccc").weekday;
+    const dayOfWeek = DateTime.fromFormat(day, "cccc").weekday % 7;
 
-    standUpTimes.forEach((time: string) => {
-      const standUpTime = DateTime.fromISO(time, { zone: timezone });
+    standUpTimes.forEach((time12hr: string) => {
+      try {
+        // Convert 12-hour format time to 24-hour format
+        const time24hr = convert12hrTo24hr(time12hr, timezone);
 
-      if (!standUpTime.isValid) {
-        console.error(`Invalid standup time: ${time}, Timezone: ${timezone}`);
-        return;
-      }
+        // Parse the 24-hour format time using Luxon
+        const standUpTime = DateTime.fromFormat(time24hr, "HH:mm", {
+          zone: timezone,
+        });
 
-      const jobRule = new schedule.RecurrenceRule();
-      jobRule.dayOfWeek = dayOfWeek;
-      jobRule.hour = standUpTime.hour;
-      jobRule.minute = standUpTime.minute;
-      jobRule.tz = timezone;
+        // console.log("log hour:", standUpTime.hour);
+        // console.log("log minute:", standUpTime.minute);
 
-      // console.log(`JobRule for ${teamData.name}:`, jobRule);
-
-      // Schedule the standup job
-      const job = schedule.scheduleJob(jobRule, async () => {
-        try {
-          console.log(
-            `Sending standup message for Team: ${teamData.name}, Standup ID: ${standupId}`
-          );
-
-          const blocks = [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `📢 *Standup Reminder for Team "${teamData.name}"*:\nPlease click the button below to fill out your standup report.`,
-              },
-            },
-            {
-              type: "actions",
-              elements: [
-                {
-                  type: "button",
-                  text: {
-                    type: "plain_text",
-                    text: "Submit Standup",
-                    emoji: true,
-                  },
-                  value: `standup_${standupId}`,
-                  action_id: `submit_standup_${standupId}`,
-                },
-              ],
-            },
-          ];
-
-          const message = await slackClient.chat.postMessage({
-            channel: slackChannelId,
-            blocks: blocks,
-            text: `📢 *Standup Reminder for Team "${teamData.name}"*`,
-          });
-
-          // Trigger reminders for non-respondents
-          if (reminderTimes && reminderTimes.length > 0) {
-            scheduleReminder(
-              slackChannelId,
-              standupId,
-              reminderTimes,
-              timezone
-            );
-          } else {
-            console.error("reminder times not initialized");
-            return;
-          }
-
-          const standupMessageTs = message.ts;
-
-          // Store the `ts` in the database for later use
-          await StandupResponse.updateOne(
-            {
-              messageTs: standupMessageTs,
-              slackChannelId: slackChannelId,
-              teamName: teamData.name,
-              standupId: standupId,
-            }, // Query
-            {
-              $set: {
-                messageTs: standupMessageTs,
-                slackChannelId: slackChannelId,
-                teamName: teamData.name,
-                standupId: standupId,
-              },
-            },
-            { upsert: true } // create if not found
-          );
-        } catch (error) {
+        if (!standUpTime.isValid) {
           console.error(
-            `Error in standup job for Team: ${teamData.name}, Standup ID: ${standupId}, channelID: ${slackChannelId}`,
-            error
+            `Invalid standup time: ${time24hr}, Timezone: ${timezone}`
           );
+          return;
         }
-      });
 
-      // Store the job
-      scheduledJobs[slackChannelId][standupId] =
-        scheduledJobs[slackChannelId][standupId] || [];
-      scheduledJobs[slackChannelId][standupId].push(job);
+        console.log("log Time for standup:", standUpTime);
+        // Create job rule
+        const jobRule = new schedule.RecurrenceRule();
+        jobRule.dayOfWeek = dayOfWeek;
+        jobRule.hour = standUpTime.hour;
+        jobRule.minute = standUpTime.minute;
+        jobRule.tz = timezone;
 
-      // console.log("Scheduled Jobs:", scheduledJobs);
+        console.log("Job Rule:", {
+          dayOfWeek: jobRule.dayOfWeek,
+          hour: jobRule.hour,
+          minute: jobRule.minute,
+          tz: jobRule.tz,
+        });
 
-      console.log(
-        `Scheduled standup for ${
-          teamData.name
-        } on ${day} at ${standUpTime.toFormat(
-          "HH:mm"
-        )} ${timezone}, Standup ID: ${standupId}`
-      );
+        // const testTime = new Date(Date.now() + 60 * 1000); // 1 minute from now
+        // const testJob = schedule.scheduleJob(testTime, () => {
+        //   console.log("Test job running at:", new Date().toISOString());
+        // });
+        // console.log("Test job scheduled for:", testTime.toISOString());
+
+        // Schedule the standup job
+        const job = schedule.scheduleJob(jobRule, async () => {
+          try {
+            console.log(
+              `Sending standup message for Team: ${teamData.name}, Standup ID: ${standupId}`
+            );
+
+            const blocks = [
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: `📢 *Standup Reminder for Team "${teamData.name}"*:\nPlease click the button below to fill out your standup report.`,
+                },
+              },
+              {
+                type: "actions",
+                elements: [
+                  {
+                    type: "button",
+                    text: {
+                      type: "plain_text",
+                      text: "Submit Standup",
+                      emoji: true,
+                    },
+                    value: `standup_${standupId}`,
+                    action_id: `submit_standup_${standupId}`,
+                  },
+                ],
+              },
+            ];
+
+            const message = await slackClient.chat.postMessage({
+              channel: slackChannelId,
+              blocks: blocks,
+              text: `📢 *Standup Reminder for Team "${teamData.name}"*`,
+            });
+
+            console.log("Standup message sent:", message.ts);
+
+            // Trigger reminders for non-respondents
+            if (reminderTimes && reminderTimes.length > 0) {
+              scheduleReminder(
+                slackChannelId,
+                standupId,
+                reminderTimes,
+                timezone
+              );
+            } else {
+              console.error("reminder times not initialized");
+              return;
+            }
+            // Create a new StandupResponse document if it doesn't exist
+            await StandupResponse.updateOne(
+              { standupId: standupId }, // Query
+              {
+                $setOnInsert: {
+                  messageTs: message.ts, // Store the timestamp of the standup message
+                  slackChannelId: slackChannelId,
+                  teamName: teamData.name,
+                  standupId: standupId,
+                  date: new Date().toISOString(), // Store the date of the standup
+                  responses: [], // Initialize responses array
+                },
+              },
+              { upsert: true } // Create if not found
+            );
+          } catch (error) {
+            console.error(
+              `Error in standup job for Team: ${teamData.name}, Standup ID: ${standupId}, channelID: ${slackChannelId}`,
+              error
+            );
+          }
+        });
+        // Store the job
+        scheduledJobs[slackChannelId][standupId] =
+          scheduledJobs[slackChannelId][standupId] || [];
+        scheduledJobs[slackChannelId][standupId].push(job);
+        console.log(
+          `Scheduled standup for ${
+            teamData.name
+          } on ${day} at ${standUpTime.toFormat(
+            "HH:mm"
+          )} ${timezone}, Standup ID: ${standupId}`
+        );
+      } catch (err) {
+        console.error(err);
+      }
     });
   });
 };

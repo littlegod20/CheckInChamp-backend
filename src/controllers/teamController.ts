@@ -1,10 +1,9 @@
 import { Request, Response } from "express";
 import { Team } from "../models/Team";
-
+import { writeToStream } from "@fast-csv/format";
+import { format } from "date-fns";
 import { web as slackClient } from "../config/slack";
-import schedule from "node-schedule";
-// A map to store scheduled jobs for each channel
-const channelJobs = new Map<string, schedule.Job[]>();
+import { StandupResponse } from "../models/StandUpResponses";
 
 //function required to create a team
 export const createTeam = async (
@@ -26,7 +25,7 @@ export const createTeam = async (
       !timezone
     ) {
       res.status(400).json({
-        error: "Please provide name, members, standUpQuestions, and timezone",
+        error: "Please provide name, members, standUpConfig, and timezone",
         data: req.body,
       });
       return;
@@ -50,7 +49,10 @@ export const createTeam = async (
       timezone,
     });
 
-    const channelName = `team-${team.name.toLowerCase().replace(/\s+/g, "-")}`; // Format channel name
+    const channelName = `team-${team.name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`; // Format channel name
     const slackChannelResponse = await slackClient.conversations.create({
       name: channelName,
       is_private: false, // Set to `false` if you want it to be a public channel
@@ -87,39 +89,6 @@ export const createTeam = async (
     });
 
     res.status(400).json({ error: error.message || "Unknown error occurred" });
-  }
-};
-
-// function for testing channel creation
-export const createChannel = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const slackChannelResponse = await slackClient.conversations.create({
-      name: "watchdogs",
-      is_private: false,
-    });
-
-    //invite your slack user to the channel
-    await slackClient.conversations.invite({
-      channel: slackChannelResponse.channel?.id as string,
-      users: "U08B0A92VQQ",
-    });
-
-    console.log("Slack channel creation response:", slackChannelResponse);
-    res.status(201).json({
-      message: "Channel created successfully",
-      slackChannel: slackChannelResponse.channel,
-    });
-  } catch (error: any) {
-    // Enhanced error logging
-    console.error("Error in createChannel:", {
-      message: error.message,
-      stack: error.stack,
-    });
-
-    res.status(400).json({ error: error.message });
   }
 };
 
@@ -173,34 +142,6 @@ export const getTeams = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// //get all teams and the questions attached to them
-// export const getTeamsWithQuestions = async (
-//   req: Request,
-//   res: Response
-// ): Promise<void> => {
-//   try {
-//     const teams = await Team.find();
-//     const teamsWithQuestions = await Promise.all(
-//       teams.map(async (team) => {
-//         const questions = await Question.find({ team: team.slackChannelId });
-//         return {
-//           team,
-//           questions,
-//         };
-//       })
-//     );
-//     res.json(teamsWithQuestions);
-//   } catch (error: any) {
-//     // Enhanced error logging
-//     console.error("Error in getTeamsWithQuestions:", {
-//       message: error.message,
-//       stack: error.stack,
-//     });
-
-//     res.status(400).json({ error: error.message });
-//   }
-// };
-
 // Function required to delete a team
 export const deleteTeam = async (
   req: Request,
@@ -234,11 +175,21 @@ export const deleteTeam = async (
       return;
     }
 
-    res
-      .status(200)
-      .json({
-        message: `Team with Slack ID ${slackChannelId} deleted successfully`,
+    // find all standup responses for that team and delete it
+    const standupResponses = await StandupResponse.findOneAndDelete({
+      slackChannelId: slackChannelId,
+    });
+
+    if (!standupResponses) {
+      res.status(200).json({
+        message: `Team with Slack ID ${slackChannelId} deleted successfully. No stand up responses found`,
       });
+      return;
+    } else {
+      res.status(404).json({
+        message: `Team with SlackId ${slackChannelId} deleted with along with its standup responses`,
+      });
+    }
   } catch (error: any) {
     // Enhanced error logging
     console.error("Error in deleteTeam:", {
@@ -252,114 +203,222 @@ export const deleteTeam = async (
   }
 };
 
-// Sending usual reminders to team's channel and members to remind them
-// async function scheduleChannelReminder(
-//   channel: string,
-//   text: string,
-//   scheduleTime: Date,
-//   url: string
-// ): Promise<void> {
-//   schedule.scheduleJob(scheduleTime, async () => {
-//     try {
-//       // Define the message with the button
-//       const message = {
-//         channel,
-//         text,
-//         blocks: [
-//           {
-//             type: "section",
-//             text: {
-//               type: "mrkdwn",
-//               text: "Please fill in for your standups",
-//             },
-//           },
-//           {
-//             type: "actions",
-//             elements: [
-//               {
-//                 type: "button",
-//                 text: {
-//                   type: "plain_text",
-//                   text: "Proceed to Fill",
-//                 },
-//                 url: url,
-//               },
-//             ],
-//           },
-//         ],
-//       };
+export const generateTeamReport = async (req: Request, res: Response) => {
+  try {
+    const { slackChannelId } = req.query;
 
-//       // Send reminder to the team channel with the button
-//       const channelResult = await slackClient.chat.postMessage(message);
-//       console.log(`Reminder sent to channel ${channel}:`, channelResult);
+    if (!slackChannelId) {
+      res.status(400).json({ error: "slackChannelId is required" });
+      return;
+    }
 
-//       // Find the team by channel ID to get the members
-//       const channelId = channel.toString();
-//       const team = await Team.findOne({ slackChannelId: channelId });
-//       if (team && team.members) {
-//         // Convert ObjectId to string and send reminders with the button
-//         for (const memberId of team.members.map((id: any) => id.toString())) {
-//           // Append memberId to the URL as a query parameter
-//           const memberUrl = `${url}?memberId=${memberId}`;
+    // Get team details
+    const team = (await Team.findOne({
+      slackChannelId: slackChannelId,
+    })) as TeamDocumentTypes;
+    if (!team) {
+      res.status(404).json({ error: "Team not found" });
+      return;
+    }
 
-//           // Create the member message with the modified URL
-//           const memberMessage = {
-//             ...message,
-//             channel: memberId,
-//             blocks: message.blocks.map((block) => {
-//               if (block.type === "actions") {
-//                 return {
-//                   ...block,
-//                   elements: block.elements?.map((element) => ({
-//                     ...element,
-//                     url: memberUrl, // Use the new URL with the memberId
-//                   })),
-//                 };
-//               }
-//               return block;
-//             }),
-//           };
+    // Get team creation date
+    // const teamCreationDate = format(new Date(team.createdAt), "yyyy-MM-dd") || null;
 
-//           const memberResult = await slackClient.chat.postMessage(
-//             memberMessage
-//           );
-//           console.log(`Reminder sent to member ${memberId}:`, memberResult);
-//         }
-//       } else {
-//         console.warn(
-//           `No team found with channel ID ${channel} or no members in the team.`
-//         );
-//       }
-//     } catch (error) {
-//       console.error(
-//         `Failed to send reminder to channel ${channel} or its members:`,
-//         error
-//       );
-//     }
-//   });
-// }
+    // Find the first recorded standup for the team
+    const firstStandup = await StandupResponse.findOne({ slackChannelId }).sort(
+      {
+        date: 1,
+      }
+    );
+    if (!firstStandup) {
+      res.status(404).json({ error: "No standup data found for this team" });
+      return;
+    }
 
-// // Set team reminder using arguments set in the post request
-// export function scheduleTeamReminder(req: Request, res: Response): void {
-//   const { channel, text, scheduleTime } = req.body;
+    // Get all standup responses for the team
+    const standups = await StandupResponse.find({ slackChannelId });
 
-//   const url = `http://localhost:5173/standup-answer/${channel}`;
-//   console.log(
-//     "Received POST /teams/team-reminder request with body:",
-//     req.body
-//   );
-//   try {
-//     const scheduleDate = new Date(scheduleTime); // Convert scheduleTime to Date object
-//     scheduleChannelReminder(channel, text, scheduleDate, url);
-//     res.status(201).json({ message: "Team reminder scheduled successfully" });
-//   } catch (error: any) {
-//     // Enhanced error logging
-//     console.error("Error in scheduleTeamReminder:", {
-//       message: error.message,
-//       stack: error.stack,
-//       body: req.body,
-//     });
+    // Group standups by date
+    const participationReport: Record<string, any> = {};
+    const standupDays = new Set();
+    const activeMembers = new Set();
 
-//     res.status(400).json({ error: error.message });
-//   }
-// }
+    standups.forEach((standup) => {
+      const date = format(new Date(standup.date), "yyyy-MM-dd");
+      standupDays.add(date);
+      // activeMembers.add(standup.userId);
+
+      if (!participationReport[date]) {
+        participationReport[date] = {
+          responded: new Set(),
+          missed: new Set(team.members),
+        };
+      }
+
+      // Add responders
+      // participationReport[date].responded.add(standup.userId);
+      // participationReport[date].missed.delete(standup.userId);
+    });
+
+    // Calculate participation rates
+    const reportData = Object.entries(participationReport).map(
+      ([date, data]) => {
+        const totalMembers = team.members.length;
+        const respondedCount = data.responded.size;
+        const participationRate =
+          totalMembers > 0 ? (respondedCount / totalMembers) * 100 : 0;
+
+        return {
+          date,
+          totalMembers,
+          responded: respondedCount,
+          missed: totalMembers - respondedCount,
+          participationRate: `${participationRate.toFixed(2)}%`,
+        };
+      }
+    );
+
+    const responsePayload = {
+      team: slackChannelId,
+      // teamCreationDate,
+      totalStandupDays: standupDays.size,
+      activeMembers: Array.from(activeMembers),
+      report: reportData,
+    };
+
+    // JSON Response
+    if (req.query.format === "json") {
+      res.json(responsePayload);
+      return;
+    }
+
+    // CSV Response
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="team_report.csv"'
+    );
+
+    writeToStream(res, reportData, { headers: true })
+      .on("error", (err) => res.status(500).json({ error: err.message }))
+      .on("finish", () => res.end());
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// UpdateTeam
+export const updateTeam = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { slackChannelId, name, members, standUpConfig, timezone } = req.body;
+
+  try {
+    // Check if the team exists
+    const existingTeam = await Team.findOne({ slackChannelId });
+    if (!existingTeam) {
+      res
+        .status(404)
+        .json({
+          error: `Team with slackChannelId ${slackChannelId} not found`,
+        });
+      return;
+    }
+
+    // Create update object with only provided fields
+    const updateData: any = {};
+    if (name) updateData.name = name;
+    if (members) updateData.members = members;
+    if (standUpConfig) updateData.standUpConfig = standUpConfig;
+    if (timezone) updateData.timezone = timezone;
+
+    // If there's nothing to update
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ error: "No valid update fields provided" });
+      return;
+    }
+
+    // If name is being updated, check if the new name already exists
+    if (name && name !== existingTeam.name) {
+      const nameExists = await Team.findOne({
+        name,
+        slackChannelId: { $ne: slackChannelId },
+      });
+      if (nameExists) {
+        res
+          .status(400)
+          .json({ error: `Team with name ${name} already exists` });
+        return;
+      }
+    }
+
+    // Update team
+    const updatedTeam = await Team.findOneAndUpdate(
+      { slackChannelId },
+      updateData,
+      { new: true } // Return the updated document
+    );
+
+    // If members are updated, update the Slack channel members
+    if (members && members.length > 0) {
+      try {
+        // Get current channel members
+        const channelInfo = await slackClient.conversations.members({
+          channel: slackChannelId,
+        });
+
+        if (channelInfo.ok && channelInfo.members) {
+          // Invite new members
+          const newMembers = members.filter(
+            (memberId: string) => !channelInfo.members?.includes(memberId)
+          );
+
+          if (newMembers.length > 0) {
+            await slackClient.conversations.invite({
+              channel: slackChannelId,
+              users: newMembers.join(","),
+            });
+          }
+
+          // Remove members that are no longer part of the team 
+          const removedMembers = channelInfo.members.filter(
+            (memberId: string) => !members.includes(memberId)
+          );
+
+          for (const memberId of removedMembers) {
+            try {
+              await slackClient.conversations.kick({
+                channel: slackChannelId,
+                user: memberId,
+              });
+            } catch (removalError: any) {
+              console.error(
+                `Error removing member ${memberId} from Slack channel:`,
+                removalError
+              );
+            }
+          }
+        }
+      } catch (slackError: any) {
+        console.error("Error updating Slack channel members:", slackError);
+        // Continue with the response as the team update was successful
+      }
+    }
+
+    res.status(200).json({
+      message: "Team updated successfully",
+      team: updatedTeam,
+    });
+  } catch (error: any) {
+    console.error("Error in updateTeam:", {
+      message: error.message,
+      stack: error.stack,
+      body: req.body,
+    });
+
+    res.status(500).json({
+      error: error.message || "An error occurred while updating the team",
+    });
+  }
+};

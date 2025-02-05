@@ -41,7 +41,8 @@ const teamSchema: Schema = new Schema({
     standUpTimes: [{ type: String, required: true }],
   },
   timezone: { type: String, required: true },
-  is_archived: { type: Boolean, default: false },
+  is_archived: { type: String, default: false },
+  // createdAt: { type: Date, required: true },
 });
 
 export const Team = mongoose.model<TeamDocumentTypes>("Team", teamSchema);

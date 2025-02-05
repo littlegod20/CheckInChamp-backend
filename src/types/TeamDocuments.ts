@@ -5,4 +5,5 @@ interface TeamDocumentTypes {
   slackChannelId: string;
   timezone: string;
   standUpConfig: StandUpConfigTypes;
+  // createdAt: Date;
 }

@@ -1,8 +1,11 @@
 import express from "express";
-import dotenv from "dotenv";
+import { config } from "dotenv";
 import teamRoutes from "./routes/teamRoutes";
 import memberRoutes from "./routes/memberRoutes";
 import standupRoutes from "./routes/standupRoutes";
+import moodRoutes from "./routes/moodRoutes";
+import kudosRoutes from "./routes/kudosRoutes";
+import pollRoutes from "./routes/pollRoutes";
 import { connectDB } from "./config/database";
 import { slackApp } from "./config/slack";
 import {
@@ -10,6 +13,9 @@ import {
   greetingRespond,
 } from "./slack_activities/interactions";
 import { home_pub } from "./slack_activities/slack_home";
+import "./slack_activities/kudos_actions";
+import "./slack_activities/pollActions";
+
 
 import {
   cacheMembersInRedis,
@@ -22,12 +28,16 @@ import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swaggerConfig";
 import { initializeSchedules } from "./helpers/initializeSchedule";
-import channelRoutes from "./routes/channelRoutes";
 import { listenForTeamUpdates } from "./helpers/listenForTeamUpdates";
 import { handleButtonClick } from "./slack_activities/interactions/handleRespondStandupBtn";
 import { handleModalSubmission } from "./slack_activities/interactions/handleStandUpSubmission";
 
-dotenv.config();
+import {
+  initializeMoodCheckIns,
+} from "./services/moodService";
+import { handleMoodSelection } from "./controllers/moodControllers";
+
+config();
 
 const app = express();
 app.use(express.json());
@@ -38,15 +48,6 @@ connectDB();
 
 // Health check endpoint
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-//a simple root route to the backend
-app.get("/", (req, res) => {
-  console.log("health check");
-  res.send("ok");
-});
-
-// testing channel creation
-app.use("/api/channel", channelRoutes);
 
 // Register the action handler for button clicks
 slackApp.action(/standup_/, async ({ body, ack }) => {
@@ -68,10 +69,19 @@ slackApp.view("standup_submission", async ({ ack, body, client }) => {
   }
 });
 
+slackApp.action(/^mood_selection_.*/, async ({ body, ack }) => {
+  await ack();
+
+  await handleMoodSelection(body);
+});
+
 // Register routes
 app.use("/api/teams", teamRoutes);
+app.use("/api/mood", moodRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/standups", standupRoutes);
+app.use("/api/kudos", kudosRoutes);
+app.use("/api/polls",pollRoutes);
 app.use((req, res) => {
   res.status(404).send(`Route not found: ${req.method} ${req.url}`);
 });
@@ -96,9 +106,16 @@ home_pub();
     await slackApp.start(SLACK_PORT);
     initializeSchedules();
     listenForTeamUpdates();
-    console.log(`⚡️ FlowSync app is running on port ${SLACK_PORT}`);
+    initializeMoodCheckIns()
+      .then(() =>
+        console.log("Mood check-ins initialized and listening for updates")
+      )
+      .catch((error) =>
+        console.error("Failed to initialize mood check-ins:", error)
+      );
+    console.log(`⚡️ Check In app is running on port ${SLACK_PORT}`);
   } catch (error) {
-    console.error("Error starting FlowSync app:", error);
+    console.error("Error starting Check In app:", error);
     process.exit(1);
   }
 })();
