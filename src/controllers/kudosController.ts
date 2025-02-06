@@ -4,9 +4,9 @@ import { slackApp } from "../config/slack";
 
 export const giveKudos = async (req: Request, res: Response) => {
     try {
-      const { giverId, receiverId, category, reason } = req.body;
+      const { giverId, receiverId, category, reason, teamName } = req.body;
   
-      if (!giverId || !receiverId || !category || !reason) {
+      if (!giverId || !receiverId || !category || !reason || teamName) {
         res.status(400).json({ error: "All fields are required" });
         return;
       }
@@ -23,12 +23,12 @@ export const giveKudos = async (req: Request, res: Response) => {
       //   return;
       // }
 
-      const newKudos = await Kudos.create({ giverId, receiverId, category, reason });
+      const newKudos = await Kudos.create({ giverId, receiverId, category, reason, teamName });
 
       // 🟢 Send Kudos Notification to Slack
       await slackApp.client.chat.postMessage({
         channel: receiverId, // Ensure this is a valid Slack user ID
-        text: `🎉 <@${giverId}> just gave you kudos for *${category}*! 🎯\n\n"${reason}"`,
+        text: `🎉 <@${giverId}> just gave you kudos for *${category}*! 🎯\n\n"${reason} in team <|>"`,
       });
 
       // Notify the giver (no limit message)

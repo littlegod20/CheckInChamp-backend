@@ -6,6 +6,7 @@ const KudosSchema = new mongoose.Schema({
   category: { type: String, required: true },
   reason: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
+  teamName: { type: String, required: true },
 });
 
 export const Kudos = mongoose.model("Kudos", KudosSchema);
