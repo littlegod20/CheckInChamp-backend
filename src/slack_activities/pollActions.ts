@@ -12,6 +12,8 @@ import {
 } from "@slack/bolt";
 import { Poll } from "../models/Poll";
 import { Types } from "mongoose";
+import { updatePollResults } from "../slack_activities/pollUpdates";
+
 
 // ✅ Function to Open the Poll Modal
 export const openCreatePollModal = async (triggerId: string, optionCount: number = 2) => {
@@ -135,23 +137,45 @@ slackApp.action("add_poll_option", async ({ ack, body, client }) => {
         }
 
         const view = body.view;
+        const existingBlocks = view.blocks;
 
-        // Fetch the current view state
-        const currentView = await client.views.get({
-            view_id: view.id,
-        });
-
-        if (!currentView.view || !currentView.view.blocks) {
-            console.error("❌ Unable to fetch the current view or its blocks.");
+        if (!existingBlocks) {
+            console.error("❌ No blocks found in the current view");
             return;
         }
 
-        const existingBlocks = currentView.view.blocks.filter((block: any) =>
+        // Count existing options
+        const optionBlocks = existingBlocks.filter(block => 
             block.block_id?.startsWith("option_")
         );
-        const newOptionCount = existingBlocks.length + 1;
+        const newOptionCount = optionBlocks.length + 1;
 
         console.log(`🔵 Adding another option. New count: ${newOptionCount}`);
+
+        // Create updated blocks array
+        const updatedBlocks = [
+            // Keep all existing blocks except the "add_option" button
+            ...existingBlocks.filter(block => block.block_id !== "add_option"),
+            // Add new option block
+            {
+                type: "input",
+                block_id: `option_${newOptionCount}`,
+                element: { type: "plain_text_input", action_id: "option_value" },
+                label: { type: "plain_text", text: `Option ${newOptionCount}` },
+            },
+            // Re-add the "add_option" button at the end
+            {
+                type: "actions",
+                block_id: "add_option",
+                elements: [
+                    {
+                        type: "button",
+                        text: { type: "plain_text", text: "➕ Add Option" },
+                        action_id: "add_poll_option",
+                    },
+                ],
+            }
+        ];
 
         // Update the modal with the new option
         await client.views.update({
@@ -160,15 +184,8 @@ slackApp.action("add_poll_option", async ({ ack, body, client }) => {
                 type: "modal",
                 callback_id: "create_poll",
                 title: { type: "plain_text", text: "Create Poll" },
-                blocks: [
-                    ...currentView.view.blocks,
-                    {
-                        type: "input",
-                        block_id: `option_${newOptionCount}`,
-                        element: { type: "plain_text_input", action_id: "option_value" },
-                        label: { type: "plain_text", text: `Option ${newOptionCount}` },
-                    },
-                ],
+                blocks: updatedBlocks,
+                submit: { type: "plain_text", text: "Create Poll" }
             },
         });
     } catch (error) {
@@ -225,7 +242,31 @@ slackApp.view("create_poll", async ({ ack, body, view }) => {
                         type: "mrkdwn",
                         text: `_Click to vote!_`,
                     },
+
                 },
+
+                {
+                    type: "section",
+                    text: {
+                        type: "mrkdwn",
+                        text:
+                            type === "single"
+                                ? "🟢 *Select One Option*"
+                                : type === "multiple"
+                                ? "🟠 *Select Multiple Options*"
+                                : "🔵 *Rate on a Scale of 1-5*",
+                    },
+                },
+                
+                ...options.map((option, index) => ({
+                    type: "section",
+                    block_id: `option_${index}`,
+                    text: {
+                        type: "mrkdwn",
+                        text: `*${option}* (0 votes)`,  // Initially 0 votes
+                    },
+                })),
+
                 ...(type === "single"
                     ? options.map((option, index) => ({
                           type: "actions",
@@ -284,7 +325,7 @@ slackApp.action("vote_single", async ({ ack, body, action }) => {
 
     try {
         const userId = body.user.id;
-        const [pollId, selectedIndex] = action.value?.split("_").slice(2) || [];
+        const [pollId, selectedIndex] = (action as ButtonAction).value?.split("_").slice(2) || [];
 
         if (!pollId || !selectedIndex) {
             console.error("❌ Poll ID or selected index is missing.");
@@ -309,6 +350,9 @@ slackApp.action("vote_single", async ({ ack, body, action }) => {
 
         poll.votes.push({ userId, selectedOptions: [selectedIndex] });
         await poll.save();
+        await updatePollResults(body.channel?.id!, body.message?.ts!, poll);
+    
+
 
         await slackApp.client.chat.postEphemeral({
             channel: body.channel?.id || "",
@@ -326,7 +370,7 @@ slackApp.action("vote_multiple", async ({ ack, body, action }) => {
 
     try {
         const userId = body.user.id;
-        const [pollId, selectedIndex] = action.value?.split("_").slice(2) || [];
+        const [pollId, selectedIndex] = (action as ButtonAction).value?.split("_").slice(2) || [];
 
         if (!pollId || !selectedIndex) {
             console.error("❌ Poll ID or selected index is missing.");
@@ -355,6 +399,7 @@ slackApp.action("vote_multiple", async ({ ack, body, action }) => {
         }
 
         await poll.save();
+        await updatePollResults(body.channel?.id!, body.message?.ts!, poll);
 
         await slackApp.client.chat.postEphemeral({
             channel: body.channel?.id || "",
@@ -372,7 +417,7 @@ slackApp.action("vote_scale", async ({ ack, body, action }) => {
 
     try {
         const userId = body.user.id;
-        const [pollId, selectedValue] = action.value?.split("_").slice(2) || [];
+        const [pollId, selectedValue] = (action as StaticSelectAction).selected_option.value?.split("_").slice(2) || [];
 
         if (!pollId || !selectedValue) {
             console.error("❌ Poll ID or selected value is missing.");
@@ -393,6 +438,7 @@ slackApp.action("vote_scale", async ({ ack, body, action }) => {
         }
 
         await poll.save();
+        await updatePollResults(body.channel?.id!, body.message?.ts!, poll);
 
         await slackApp.client.chat.postEphemeral({
             channel: body.channel?.id || "",
@@ -403,3 +449,9 @@ slackApp.action("vote_scale", async ({ ack, body, action }) => {
         console.error("❌ Error handling scale vote:", error);
     }
 });
+
+
+
+
+
+
