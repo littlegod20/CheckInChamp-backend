@@ -3,7 +3,7 @@ import { MoodResponse } from "../models/MoodResponse";
 import { MoodTime } from "../models/MoodTime";
 import { WebClient } from "@slack/web-api";
 import { Member } from "../models/Member";
-import { Team } from "../models/Team";
+import { Team, TeamDocument } from "../models/Team";
 
 const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
 
@@ -21,10 +21,16 @@ export const createMoodResponse = async (req: Request, res: Response) => {
     ) {
       throw new Error(`Ensure all fields are valid and not empty`);
     }
+
+    const channelName = `team-${teamName
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`; // Format channel name
+
     const newMood = {
       userId,
       userName,
-      teamName,
+      teamName: channelName,
       slackChannelId,
       mood,
       date,
@@ -204,7 +210,9 @@ export const handleMoodSelection = async (payload: any) => {
     const channelId = payload.channel.id;
 
     const userName = await Member.findOne({ slackId: userId });
-    const teamName = await Team.findOne({ slackChannelId: channelId }) as unknown as TeamDocumentTypes
+    const teamName = (await Team.findOne({
+      slackChannelId: channelId,
+    })) as unknown as TeamDocument;
 
     console.log("selected Mood:", selectedMood);
 

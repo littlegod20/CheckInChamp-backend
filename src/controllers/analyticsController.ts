@@ -23,7 +23,7 @@ export const getMasterAnalytics = async (req: Request, res: Response) => {
     const teamName = await Team.find(teamFilter).select("name");
     const names = teamName.map((t) => t.name);
 
-    console.log("TeamIds:", teams);
+    // console.log("TeamIds:", teams);
 
     // Recent Activities Query
     const recentActivities = await getRecentActivities(
@@ -43,7 +43,7 @@ export const getMasterAnalytics = async (req: Request, res: Response) => {
       dateFilter
     );
 
-    console.log("comparison:", teamComparison);
+    // console.log("comparison:", teamComparison);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     // Fetch all data in parallel
@@ -185,26 +185,122 @@ export const getMasterAnalytics = async (req: Request, res: Response) => {
       ]),
     ]);
 
+    // const standupTrends = await StandupResponse.aggregate([
+    //   {
+    //     $match: {
+    //       slackChannelId: { $in: teamIds },
+    //       date: Object.keys(dateFilter).length ? dateFilter : { $exists: true },
+    //     },
+    //   },
+    //   {
+    //     $group: {
+    //       _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+    //       count: { $sum: 1 },
+    //     },
+    //   },
+    //   { $sort: { _id: 1 } },
+    // ]);
+
     const standupTrends = await StandupResponse.aggregate([
       {
         $match: {
           slackChannelId: { $in: teamIds },
-          date: Object.keys(dateFilter).length ? dateFilter : { $exists: true },
+          date: Object.keys(dateFilter).length
+            ? {
+                $gte: new Date(new Date(dateFilter).setHours(0, 0, 0, 0)), // Start of the day
+                $lt: new Date(new Date(dateFilter).setHours(23, 59, 59, 999)), // End of the day
+              }
+            : { $exists: true },
+        },
+      },
+      {
+        $lookup: {
+          from: "moodresponses",
+          let: {
+            standupDate: {
+              $dateToString: { format: "%Y-%m-%d", date: "$date" },
+            },
+          }, // Normalize standup date
+          pipeline: [
+            {
+              $addFields: {
+                moodDate: {
+                  $dateToString: { format: "%Y-%m-%d", date: "$date" },
+                }, // Normalize mood response date
+              },
+            },
+            {
+              $match: {
+                $expr: { $eq: ["$moodDate", "$$standupDate"] }, // Compare dates
+              },
+            },
+          ],
+          as: "moods",
+        },
+      },
+      {
+        $unwind: {
+          path: "$moods",
+          preserveNullAndEmptyArrays: true,
         },
       },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          count: { $sum: 1 },
+          standupCount: { $sum: 1 }, // Total standups per day
+          completedStandups: {
+            $sum: { $cond: [{ $eq: ["$completed", true] }, 1, 0] }, // Count completed standups
+          },
+          moodCounts: {
+            $push: "$moods.mood", // Collect moods
+          },
         },
       },
-      { $sort: { _id: 1 } },
+      {
+        $project: {
+          date: "$_id",
+          standupCount: 1,
+          completedStandups: 1,
+          moodDistribution: {
+            happy: {
+              $size: {
+                $filter: {
+                  input: "$moodCounts",
+                  as: "m",
+                  cond: { $eq: ["$$m", "happy"] },
+                },
+              },
+            },
+            neutral: {
+              $size: {
+                $filter: {
+                  input: "$moodCounts",
+                  as: "m",
+                  cond: { $eq: ["$$m", "neutral"] },
+                },
+              },
+            },
+            sad: {
+              $size: {
+                $filter: {
+                  input: "$moodCounts",
+                  as: "m",
+                  cond: { $eq: ["$$m", "sad"] },
+                },
+              },
+            },
+          },
+        },
+      },
+      { $sort: { date: 1 } },
     ]);
+
+    console.log("standupTrends:", standupTrends);
 
     const moodCounts: any[] = moods[0]?.counts || [];
     const avgMood = moods[0]?.average?.[0]?.avg || 0;
 
-    console.log("recents:", JSON.stringify(recentActivities));
+    // console.log("recents:", JSON.stringify(recentActivities));
 
     // Format the data
     const response = {
@@ -233,7 +329,7 @@ export const getMasterAnalytics = async (req: Request, res: Response) => {
       recentActivities,
     };
 
-    res.status(200).json({ ...response , teamComparison});
+    res.status(200).json({ ...response, teamComparison });
   } catch (error) {
     console.error("Error fetching analytics:", error);
     res.status(500).json({ error: "Internal Server Error" });
