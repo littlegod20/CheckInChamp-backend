@@ -95,11 +95,14 @@ export const getPollResults = async (req: Request, res: Response) => {
     }
   };
 
-//   export const saveVoteToDB = async ({ pollId, userId, vote }: { pollId: string, userId: string, vote: string }) => {
-//     try {
-//         await PollVoteModel.create({ pollId, userId, vote }); // Save to DB
-//         console.log(`✅ Vote saved: Poll ${pollId}, User ${userId}, Vote ${vote}`);
-//     } catch (error) {
-//         console.error("❌ Error saving vote:", error);
-//     }
-// };
+
+// ✅ Get All Polls
+export const getAllPolls = async (req: Request, res: Response) => {
+  try {
+      const polls = await Poll.find();
+      res.status(200).json(polls);
+  } catch (error) {
+      console.error("Error fetching polls:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+  }
+};

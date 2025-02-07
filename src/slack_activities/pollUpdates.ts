@@ -1,6 +1,6 @@
 import { KnownBlock } from "@slack/web-api";
 import { Poll } from "../models/Poll"; // Adjust the path based on your structure
-import {  web } from "../config/slack";
+import {  slackApp } from "../config/slack";
 
 // Define a TypeScript interface for the Poll type
 interface PollDocument {

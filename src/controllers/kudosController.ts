@@ -3,56 +3,57 @@ import { Kudos } from "../models/kudos";
 import { slackApp } from "../config/slack";
 
 export const giveKudos = async (req: Request, res: Response) => {
-    try {
+  try {
       const { giverId, receiverId, category, reason } = req.body;
-  
+
       if (!giverId || !receiverId || !category || !reason) {
-        res.status(400).json({ error: "All fields are required" });
-        return;
+          res.status(400).json({ error: "All fields are required" });
+          return;
       }
 
-      // 🚫 REMOVE DAILY LIMIT CHECK FOR TESTING
-      // const today = new Date();
-      // today.setHours(0, 0, 0, 0);
-      // const kudosCount = await Kudos.countDocuments({
-      //   giverId,
-      //   timestamp: { $gte: today },
-      // });
-      // if (kudosCount >= 3) {
-      //   res.status(403).json({ message: "You have reached your daily limit of 3 kudos." });
-      //   return;
-      // }
+      // ✅ REINSTATED DAILY LIMIT CHECK
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const kudosCount = await Kudos.countDocuments({
+          giverId,
+          timestamp: { $gte: today },
+      });
+
+      if (kudosCount >= 3) {
+          res.status(403).json({ message: "You have reached your daily limit of 3 kudos." });
+          return;
+      }
 
       const newKudos = await Kudos.create({ giverId, receiverId, category, reason });
 
       const emojiMap: { [key: string]: string } = {
-        teamwork: "🎯",
-        creativity: "💡",
-        leadership: "🦸",
-        
-    };
+          teamwork: "🎯",
+          creativity: "💡",
+          leadership: "🦸",
+      };
 
-    const categoryEmoji = emojiMap[category] || "⭐"; // Default emoji if category not found
-    const kudosMessage = `🎉 <@${giverId}> just gave you kudos for *${categoryEmoji} ${category}*! \n\n"${reason}"`;
+      const categoryEmoji = emojiMap[category] || "⭐"; // Default emoji if category not found
+      const kudosMessage = `🎉 <@${giverId}> just gave you kudos for *${categoryEmoji} ${category}*! \n\n"${reason}"`;
 
       // 🟢 Send Kudos Notification to Slack
       await slackApp.client.chat.postMessage({
-        channel: receiverId,  // Send to the receiver
-        text: kudosMessage,
-    });
+          channel: receiverId,
+          text: kudosMessage,
+      });
 
-      // Notify the giver (no limit message)
+      // Notify the giver (success message)
       await slackApp.client.chat.postMessage({
-        channel: giverId,
-        text: `✅ Kudos sent successfully!`,
+          channel: giverId,
+          text: "✅ Kudos sent successfully!",
       });
 
       res.status(201).json({ message: "Kudos sent successfully!", kudos: newKudos });
 
-    } catch (error) {
+  } catch (error) {
       console.error("Error giving kudos:", error);
       res.status(500).json({ error: "Internal Server Error" });
-    }
+  }
 };
 // ✅ Function to Get Kudos (with filtering)
 export const getKudos = async (req: Request, res: Response) => {
