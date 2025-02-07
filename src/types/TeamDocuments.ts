@@ -1,4 +1,4 @@
-interface TeamDocumentTypes {
+export interface TeamDocumentTypes {
   _id: string;
   members: string[];
   name: string;

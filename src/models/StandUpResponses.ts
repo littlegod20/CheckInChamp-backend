@@ -20,13 +20,6 @@ const standupResponseSchema = new Schema({
       responseTime: { type: String, required: true }, // Time of response
     },
   ],
-  // responses: [
-  //   {
-  //     questionId: { type: String, required: true },
-  //     questionType: String,
-  //     answer: [String],
-  //   },
-  // ],
   standupId: String,
   // responseTime: Date,
 });

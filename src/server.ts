@@ -6,6 +6,8 @@ import standupRoutes from "./routes/standupRoutes";
 import moodRoutes from "./routes/moodRoutes";
 import kudosRoutes from "./routes/kudosRoutes";
 import pollRoutes from "./routes/pollRoutes";
+import analyticsRoutes from "./routes/analyticsRoutes";
+
 import { connectDB } from "./config/database";
 import { slackApp } from "./config/slack";
 import {
@@ -15,7 +17,6 @@ import {
 import { home_pub } from "./slack_activities/slack_home";
 import "./slack_activities/kudos_actions";
 import "./slack_activities/pollActions";
-
 
 import {
   cacheMembersInRedis,
@@ -32,9 +33,7 @@ import { listenForTeamUpdates } from "./helpers/listenForTeamUpdates";
 import { handleButtonClick } from "./slack_activities/interactions/handleRespondStandupBtn";
 import { handleModalSubmission } from "./slack_activities/interactions/handleStandUpSubmission";
 
-import {
-  initializeMoodCheckIns,
-} from "./services/moodService";
+import { initializeMoodCheckIns } from "./services/moodService";
 import { handleMoodSelection } from "./controllers/moodControllers";
 
 config();
@@ -81,7 +80,8 @@ app.use("/api/mood", moodRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/standups", standupRoutes);
 app.use("/api/kudos", kudosRoutes);
-app.use("/api/polls",pollRoutes);
+app.use("/api/polls", pollRoutes);
+app.use("/api/master", analyticsRoutes);
 app.use((req, res) => {
   res.status(404).send(`Route not found: ${req.method} ${req.url}`);
 });
