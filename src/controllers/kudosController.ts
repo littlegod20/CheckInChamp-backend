@@ -13,17 +13,17 @@ export const giveKudos = async (req: Request, res: Response) => {
 
       console.log("data:", teamName)
 
-      // 🚫 REMOVE DAILY LIMIT CHECK FOR TESTING
-      // const today = new Date();
-      // today.setHours(0, 0, 0, 0);
-      // const kudosCount = await Kudos.countDocuments({
-      //   giverId,
-      //   timestamp: { $gte: today },
-      // });
-      // if (kudosCount >= 3) {
-      //   res.status(403).json({ message: "You have reached your daily limit of 3 kudos." });
-      //   return;
-      // }
+      // REMOVE DAILY LIMIT CHECK FOR TESTING
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const kudosCount = await Kudos.countDocuments({
+        giverId,
+        timestamp: { $gte: today },
+      });
+      if (kudosCount >= 3) {
+        res.status(403).json({ message: "You have reached your daily limit of 3 kudos." });
+        return;
+      }
 
       const newKudos = await Kudos.create({ giverId, receiverId, category, reason });
 
