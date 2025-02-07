@@ -120,10 +120,9 @@ slackApp.view("submit_kudos", async ({ ack, body, view, client }) => {
   const teamName = (await Team.findOne({
     slackChannelId: teamId,
   })) as TeamDocument;
- 
-  const giverName = await Member.findOne({slackId: userId}) as any
-    const receiverName = (await Member.findOne({ slackId: receiverId })) as any;
 
+  const giverName = (await Member.findOne({ slackId: userId })) as any;
+  const receiverName = (await Member.findOne({ slackId: receiverId })) as any;
 
   try {
     // Call backend API instead of saving directly
@@ -134,20 +133,6 @@ slackApp.view("submit_kudos", async ({ ack, body, view, client }) => {
       reason,
       teamName: teamName.name,
     });
-
-    // const kudos = await Kudos.create({
-    //   giverId: giverName.name,
-    //   receiverId: receiverName.name,
-    //   category,
-    //   reason,
-    //   teamId: teamName.name,
-    // });
-
-    // // Notify giver
-    // await client.chat.postMessage({
-    //   channel: userId,
-    //   text: `✅ Kudos sent successfully!`,
-    // });
   } catch (error) {
     console.error("Error sending kudos:", error);
     await client.chat.postMessage({
