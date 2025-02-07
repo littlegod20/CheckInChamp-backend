@@ -51,7 +51,9 @@ export const handleButtonClick = async (payload: any) => {
     const standupDoc = await StandupResponse.findOne({ standupId: standupId });
 
     if (standupDoc) {
-      const hasRespondedToday = standupDoc.userId === userId && new Date(standupDoc.date).toISOString().split("T")[0] === today;
+      const hasRespondedToday =
+        standupDoc.responses.some(response => response.userId === userId) &&
+        new Date(standupDoc.date).toISOString().split("T")[0] === today;
 
       if (hasRespondedToday) {
         // Open a modal indicating the user has already submitted
@@ -85,8 +87,7 @@ export const handleButtonClick = async (payload: any) => {
 
     // Dynamically generate modal blocks based on fetched questions
     const modalBlocks = standupQuestions.map((item, index: number) => {
-      const questionId = item.id || index
-
+      const questionId = item.id || index;
 
       let element;
 
@@ -94,7 +95,7 @@ export const handleButtonClick = async (payload: any) => {
 
       // Customize the element based on the type
       switch (item.type) {
-        case "plain_text_input":
+        case "text":
           element = {
             type: "plain_text_input",
             action_id: `answer_${questionId}`,
@@ -102,7 +103,22 @@ export const handleButtonClick = async (payload: any) => {
           };
           break;
 
-        case "static_select":
+        case "multiple-choice":
+          element = {
+            type: "multi_static_select",
+            action_id: `answer_${questionId}`,
+            placeholder: {
+              type: "plain_text",
+              text: "Choose an option",
+            },
+            options: item.options?.map((option: string) => ({
+              text: { type: "plain_text", text: option },
+              value: option,
+            })),
+          };
+          break;
+
+        case "select":
           element = {
             type: "static_select",
             action_id: `answer_${questionId}`,

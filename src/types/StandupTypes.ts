@@ -22,6 +22,10 @@ interface StandUpConfigTypes {
 }
 
 interface ResponsesTypes {
-  questionId: string;
-  answer: string;
+  userId: string;
+  answers: {
+    answer: string;
+    questionId: string;
+  }[];
+  responseTime: Date;
 }

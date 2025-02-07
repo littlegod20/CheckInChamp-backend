@@ -8,11 +8,21 @@ export const scheduleReminder = async (
   reminderTimes: string[],
   timezone: string = "GMT"
 ) => {
-  reminderTimes.forEach((time) => {
-    const reminderTime = DateTime.fromISO(time, { zone: timezone });
+  console.log("from scheduleReminder:", reminderTimes);
+
+  // Convert 12-hour format time to 24-hour format
+  reminderTimes.forEach((time12hr) => {
+    const time24hr = DateTime.fromFormat(time12hr, "h:mm a", {
+      zone: timezone,
+    }).toFormat("HH:mm");
+
+    // Parse the 24-hour format time using Luxon
+    const reminderTime = DateTime.fromFormat(time24hr, "HH:mm", {
+      zone: timezone,
+    });
 
     if (!reminderTime.isValid) {
-      console.error(`Invalid reminder time: ${time}, Timezone: ${timezone}`);
+      console.error(`Invalid reminder time: ${time12hr}, Timezone: ${timezone}`);
       return;
     }
 
@@ -20,6 +30,8 @@ export const scheduleReminder = async (
     reminderRule.hour = reminderTime.hour;
     reminderRule.minute = reminderTime.minute;
     reminderRule.tz = timezone;
+
+    console.log("reminder Rule:", reminderRule);
 
     schedule.scheduleJob(reminderRule, async () => {
       try {

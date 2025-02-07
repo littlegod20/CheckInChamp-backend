@@ -3,27 +3,27 @@ import { Kudos } from "../models/kudos";
 import { slackApp } from "../config/slack";
 
 export const giveKudos = async (req: Request, res: Response) => {
-  try {
-      const { giverId, receiverId, category, reason } = req.body;
-
-      if (!giverId || !receiverId || !category || !reason) {
-          res.status(400).json({ error: "All fields are required" });
-          return;
+    try {
+      const { giverId, receiverId, category, reason, teamName } = req.body;
+  
+      if (!giverId || !receiverId || !category || !reason || teamName) {
+        res.status(400).json({ error: "All fields are required" });
+        return;
       }
 
-      // ✅ REINSTATED DAILY LIMIT CHECK
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      console.log("data:", teamName)
 
-      const kudosCount = await Kudos.countDocuments({
-          giverId,
-          timestamp: { $gte: today },
-      });
-
-      if (kudosCount >= 3) {
-          res.status(403).json({ message: "You have reached your daily limit of 3 kudos." });
-          return;
-      }
+      // 🚫 REMOVE DAILY LIMIT CHECK FOR TESTING
+      // const today = new Date();
+      // today.setHours(0, 0, 0, 0);
+      // const kudosCount = await Kudos.countDocuments({
+      //   giverId,
+      //   timestamp: { $gte: today },
+      // });
+      // if (kudosCount >= 3) {
+      //   res.status(403).json({ message: "You have reached your daily limit of 3 kudos." });
+      //   return;
+      // }
 
       const newKudos = await Kudos.create({ giverId, receiverId, category, reason });
 
@@ -69,33 +69,33 @@ export const getKudos = async (req: Request, res: Response) => {
   
       const kudos = await Kudos.find(filters).sort({ timestamp: -1 });
   
-      // Fetch user details from Slack API
-      const fetchSlackUser = async (userId: string) => {
-        try {
-          const response = await slackApp.client.users.info({ user: userId });
-          return response.user?.real_name || "Unknown User";
-        } catch (error) {
-          console.error(`Error fetching Slack user ${userId}:`, error);
-          return "Unknown User";
-        }
-      };
+      // // Fetch user details from Slack API
+      // const fetchSlackUser = async (userId: string) => {
+      //   try {
+      //     const response = await slackApp.client.users.info({ user: userId });
+      //     return response.user?.real_name || "Unknown User";
+      //   } catch (error) {
+      //     console.error(`Error fetching Slack user ${userId}:`, error);
+      //     return "Unknown User";
+      //   }
+      // };
   
-      // Map kudos and replace user IDs with names
-      const kudosWithNames = await Promise.all(
-        kudos.map(async (kudo) => ({
-          ...kudo.toObject(),
-          giver: {
-            id: kudo.giverId,
-            name: await fetchSlackUser(kudo.giverId),
-          },
-          receiver: {
-            id: kudo.receiverId,
-            name: await fetchSlackUser(kudo.receiverId),
-          },
-        }))
-      );
+      // // Map kudos and replace user IDs with names
+      // const kudosWithNames = await Promise.all(
+      //   kudos.map(async (kudo) => ({
+      //     ...kudo.toObject(),
+      //     giver: {
+      //       id: kudo.giverId,
+      //       name: await fetchSlackUser(kudo.giverId),
+      //     },
+      //     receiver: {
+      //       id: kudo.receiverId,
+      //       name: await fetchSlackUser(kudo.receiverId),
+      //     },
+      //   }))
+      // );
   
-      res.status(200).json(kudosWithNames);
+      res.status(200).json(kudos);
     } catch (error) {
       console.error("Error fetching kudos:", error);
       res.status(500).json({ error: "Internal Server Error" });

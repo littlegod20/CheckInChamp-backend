@@ -1,9 +1,10 @@
 import { KnownBlock } from "@slack/web-api";
 import { Poll } from "../models/Poll"; // Adjust the path based on your structure
-import {  slackApp } from "../config/slack";
+import {  slackApp, web } from "../config/slack";
+import { Document } from "mongoose";
 
 // Define a TypeScript interface for the Poll type
-interface PollDocument {
+export interface PollDocumentTypes extends Document {
     _id: string;
     question: string;
     options: string[];
@@ -21,7 +22,7 @@ interface PollDocument {
 }
 
 // Function to update the poll results
-export const updatePollResults = async (channelId: string, messageTs: string, poll: typeof Poll) => {
+export const updatePollResults = async (channelId: string, messageTs: string, poll: PollDocumentTypes) => {
     const votesByOption: Record<number, string[]> = {};
     const scaleVotes: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }; 
 
