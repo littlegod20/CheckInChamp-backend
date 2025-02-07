@@ -7,7 +7,9 @@ export const giveKudos = async (req: Request, res: Response) => {
   try {
     const { giverId, receiverId, category, reason, teamName } = req.body;
 
+    console.log("inisiss")
     if (!giverId || !receiverId || !category || !reason || !teamName) {
+      console.log("Error")
       res.status(400).json({ error: "All fields are required" });
       return;
     }
@@ -22,7 +24,9 @@ export const giveKudos = async (req: Request, res: Response) => {
     //   timestamp: { $gte: today },
     // });
     // if (kudosCount >= 3) {
-    //   res.status(403).json({ message: "You have reached your daily limit of 3 kudos." });
+    //   res
+    //     .status(403)
+    //     .json({ message: "You have reached your daily limit of 3 kudos." });
     //   return;
     // }
 
