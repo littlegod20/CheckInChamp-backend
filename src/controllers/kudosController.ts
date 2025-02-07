@@ -11,6 +11,8 @@ export const giveKudos = async (req: Request, res: Response) => {
         return;
       }
 
+      console.log("data:", teamName)
+
       // 🚫 REMOVE DAILY LIMIT CHECK FOR TESTING
       // const today = new Date();
       // today.setHours(0, 0, 0, 0);
@@ -58,33 +60,33 @@ export const getKudos = async (req: Request, res: Response) => {
   
       const kudos = await Kudos.find(filters).sort({ timestamp: -1 });
   
-      // Fetch user details from Slack API
-      const fetchSlackUser = async (userId: string) => {
-        try {
-          const response = await slackApp.client.users.info({ user: userId });
-          return response.user?.real_name || "Unknown User";
-        } catch (error) {
-          console.error(`Error fetching Slack user ${userId}:`, error);
-          return "Unknown User";
-        }
-      };
+      // // Fetch user details from Slack API
+      // const fetchSlackUser = async (userId: string) => {
+      //   try {
+      //     const response = await slackApp.client.users.info({ user: userId });
+      //     return response.user?.real_name || "Unknown User";
+      //   } catch (error) {
+      //     console.error(`Error fetching Slack user ${userId}:`, error);
+      //     return "Unknown User";
+      //   }
+      // };
   
-      // Map kudos and replace user IDs with names
-      const kudosWithNames = await Promise.all(
-        kudos.map(async (kudo) => ({
-          ...kudo.toObject(),
-          giver: {
-            id: kudo.giverId,
-            name: await fetchSlackUser(kudo.giverId),
-          },
-          receiver: {
-            id: kudo.receiverId,
-            name: await fetchSlackUser(kudo.receiverId),
-          },
-        }))
-      );
+      // // Map kudos and replace user IDs with names
+      // const kudosWithNames = await Promise.all(
+      //   kudos.map(async (kudo) => ({
+      //     ...kudo.toObject(),
+      //     giver: {
+      //       id: kudo.giverId,
+      //       name: await fetchSlackUser(kudo.giverId),
+      //     },
+      //     receiver: {
+      //       id: kudo.receiverId,
+      //       name: await fetchSlackUser(kudo.receiverId),
+      //     },
+      //   }))
+      // );
   
-      res.status(200).json(kudosWithNames);
+      res.status(200).json(kudos);
     } catch (error) {
       console.error("Error fetching kudos:", error);
       res.status(500).json({ error: "Internal Server Error" });

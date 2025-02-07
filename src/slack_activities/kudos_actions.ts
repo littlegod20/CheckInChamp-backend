@@ -1,6 +1,8 @@
 import { slackApp } from "../config/slack";
 import { Kudos } from "../models/kudos";
 import axios from "axios";
+import { Team, TeamDocument } from "../models/Team";
+import { Member } from "../models/Member";
 
 // Open Kudos Modal
 slackApp.action("open_kudos_modal", async ({ body, ack, client }) => {
@@ -35,6 +37,18 @@ slackApp.action("open_kudos_modal", async ({ body, ack, client }) => {
             label: {
               type: "plain_text",
               text: "Select a team member",
+            },
+          },
+          {
+            type: "input",
+            block_id: "select_team",
+            element: {
+              type: "channels_select",
+              action_id: "team",
+            },
+            label: {
+              type: "plain_text",
+              text: "Select a team",
             },
           },
           {
@@ -94,33 +108,51 @@ slackApp.action("open_kudos_modal", async ({ body, ack, client }) => {
 
 // Handle Kudos Submission
 slackApp.view("submit_kudos", async ({ ack, body, view, client }) => {
-    await ack(); 
-  
-    const userId = body.user.id;
-    const receiverId = view.state.values.select_user.user.selected_user;
-    const reason = view.state.values.reason.reason_input.value;
-    const category = view.state.values.category.category_select?.selected_option?.value;
+  await ack();
 
-    try {
-        // Call backend API instead of saving directly
-        await axios.post("http://localhost:5000/api/kudos", {
-          giverId: userId,
-          receiverId,
-          category,
-          reason,
-        });
-    
-        // Notify giver
-        await client.chat.postMessage({
-          channel: userId,
-          text: `✅ Kudos sent successfully!`,
-        });
-    
-      } catch (error) {
-        console.error("Error sending kudos:", error);
-        await client.chat.postMessage({
-          channel: userId,
-          text: "❌ Something went wrong while sending kudos. Please try again later.",
-        });
-      }
+  const userId = body.user.id;
+  const receiverId = view.state.values.select_user.user.selected_user;
+  const reason = view.state.values.reason.reason_input.value;
+  const category =
+    view.state.values.category.category_select?.selected_option?.value;
+  const teamId = view.state.values.select_team?.team?.selected_channel;
+
+  const teamName = (await Team.findOne({
+    slackChannelId: teamId,
+  })) as TeamDocument;
+ 
+  const giverName = await Member.findOne({slackId: userId}) as any
+    const receiverName = (await Member.findOne({ slackId: receiverId })) as any;
+
+
+  try {
+    // Call backend API instead of saving directly
+    // await axios.post("http://localhost:5000/api/kudos", {
+    //   giverId: userId,
+    //   receiverId,
+    //   category,
+    //   reason,
+    //   teamId
+    // });
+
+    const kudos = await Kudos.create({
+      giverId: giverName.name,
+      receiverId: receiverName.name,
+      category,
+      reason,
+      teamId: teamName.name,
     });
+
+    // Notify giver
+    await client.chat.postMessage({
+      channel: userId,
+      text: `✅ Kudos sent successfully!`,
+    });
+  } catch (error) {
+    console.error("Error sending kudos:", error);
+    await client.chat.postMessage({
+      channel: userId,
+      text: "❌ Something went wrong while sending kudos. Please try again later.",
+    });
+  }
+});
