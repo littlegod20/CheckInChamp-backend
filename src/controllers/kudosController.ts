@@ -25,13 +25,23 @@ export const giveKudos = async (req: Request, res: Response) => {
       //   return;
       // }
 
-      const newKudos = await Kudos.create({ giverId, receiverId, category, reason, teamName });
+      const newKudos = await Kudos.create({ giverId, receiverId, category, reason });
+
+      const emojiMap: { [key: string]: string } = {
+        teamwork: "🎯",
+        creativity: "💡",
+        leadership: "🦸",
+        
+    };
+
+    const categoryEmoji = emojiMap[category] || "⭐"; // Default emoji if category not found
+    const kudosMessage = `🎉 <@${giverId}> just gave you kudos for *${categoryEmoji} ${category}*! \n\n"${reason}"`;
 
       // 🟢 Send Kudos Notification to Slack
       await slackApp.client.chat.postMessage({
-        channel: receiverId, // Ensure this is a valid Slack user ID
-        text: `🎉 <@${giverId}> just gave you kudos for *${category}*! 🎯\n\n"${reason} in team <|>"`,
-      });
+        channel: receiverId,  // Send to the receiver
+        text: kudosMessage,
+    });
 
       // Notify the giver (no limit message)
       await slackApp.client.chat.postMessage({

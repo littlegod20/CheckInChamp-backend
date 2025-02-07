@@ -12,7 +12,13 @@ import {
 } from "@slack/bolt";
 import { Poll } from "../models/Poll";
 import { Types } from "mongoose";
+import {
+  PollDocumentTypes,
+  updatePollResults,
+} from "../slack_activities/pollUpdates";
+
 import { Team } from "../models/Team";
+import { timeStamp } from "console";
 
 // ✅ Function to Open the Poll Modal
 export const openCreatePollModal = async (
@@ -273,6 +279,29 @@ slackApp.view("create_poll", async ({ ack, body, view }) => {
             text: `_Click to vote!_`,
           },
         },
+
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              type === "single"
+                ? "🟢 *Select One Option*"
+                : type === "multiple"
+                ? "🟠 *Select Multiple Options*"
+                : "🔵 *Rate on a Scale of 1-5*",
+          },
+        },
+
+        ...options.map((option, index) => ({
+          type: "section",
+          block_id: `option_${index}`,
+          text: {
+            type: "mrkdwn",
+            text: `*${option}* (0 votes)`, // Initially 0 votes
+          },
+        })),
+
         ...(type === "single"
           ? options.map((option, index) => ({
               type: "actions",
@@ -333,6 +362,11 @@ slackApp.action("vote_single", async ({ ack, body, action }) => {
   await ack();
 
   try {
+    // Add type assertion for the body
+    const blockBody = body as typeof body & {
+      container: { message_ts: string; channel_id: string };
+    };
+
     const userId = body.user.id;
     const [pollId, selectedIndex] =
       (action as ButtonAction).value?.split("_").slice(2) || [];
@@ -342,7 +376,9 @@ slackApp.action("vote_single", async ({ ack, body, action }) => {
       return;
     }
 
-    const poll = await Poll.findOne({ _id: new Types.ObjectId(pollId) });
+    const poll = (await Poll.findOne({
+      _id: new Types.ObjectId(pollId),
+    })) as PollDocumentTypes;
     if (!poll) {
       console.error("❌ Poll not found.");
       return;
@@ -358,8 +394,16 @@ slackApp.action("vote_single", async ({ ack, body, action }) => {
       return;
     }
 
-    poll.votes.push({ userId, selectedOptions: [selectedIndex] });
+    poll.votes.push({
+      userId,
+      selectedOptions: [parseInt(selectedIndex)],
+      timestamp: new Date(),
+    });
+
+    // Get message details from container
+    const { message_ts, channel_id } = blockBody.container;
     await poll.save();
+    await updatePollResults(channel_id, message_ts, poll);
 
     await slackApp.client.chat.postEphemeral({
       channel: body.channel?.id || "",
@@ -378,6 +422,11 @@ slackApp.action("vote_multiple", async ({ ack, body, action }) => {
   await ack();
 
   try {
+    // Add type assertion for the body
+    const blockBody = body as typeof body & {
+      container: { message_ts: string; channel_id: string };
+    };
+
     const userId = body.user.id;
     const [pollId, selectedIndex] =
       (action as ButtonAction).value?.split("_").slice(2) || [];
@@ -387,7 +436,9 @@ slackApp.action("vote_multiple", async ({ ack, body, action }) => {
       return;
     }
 
-    const poll = await Poll.findOne({ _id: new Types.ObjectId(pollId) });
+    const poll = (await Poll.findOne({
+      _id: new Types.ObjectId(pollId),
+    })) as PollDocumentTypes;
     if (!poll) {
       console.error("❌ Poll not found.");
       return;
@@ -395,7 +446,7 @@ slackApp.action("vote_multiple", async ({ ack, body, action }) => {
 
     const userVote = poll.votes.find((vote) => vote.userId === userId);
     if (userVote) {
-      if (userVote.selectedOptions.includes(selectedIndex)) {
+      if (userVote.selectedOptions.includes(parseInt(selectedIndex))) {
         await slackApp.client.chat.postEphemeral({
           channel: body.channel?.id || "",
           user: userId,
@@ -403,12 +454,19 @@ slackApp.action("vote_multiple", async ({ ack, body, action }) => {
         });
         return;
       }
-      userVote.selectedOptions.push(selectedIndex);
+      userVote.selectedOptions.push(parseInt(selectedIndex));
     } else {
-      poll.votes.push({ userId, selectedOptions: [selectedIndex] });
+      poll.votes.push({
+        userId,
+        selectedOptions: [parseInt(selectedIndex)],
+        timestamp: new Date(),
+      });
     }
 
+    // Get message details from container
+    const { message_ts, channel_id } = blockBody.container;
     await poll.save();
+    await updatePollResults(channel_id, message_ts, poll);
 
     await slackApp.client.chat.postEphemeral({
       channel: body.channel?.id || "",
@@ -427,6 +485,11 @@ slackApp.action("vote_scale", async ({ ack, body, action }) => {
   await ack();
 
   try {
+    // Add type assertion for the body
+    const blockBody = body as typeof body & {
+      container: { message_ts: string; channel_id: string };
+    };
+
     const userId = body.user.id;
     const [pollId, selectedValue] =
       (action as StaticSelectAction).selected_option.value
@@ -438,7 +501,9 @@ slackApp.action("vote_scale", async ({ ack, body, action }) => {
       return;
     }
 
-    const poll = await Poll.findOne({ _id: new Types.ObjectId(pollId) });
+    const poll = (await Poll.findOne({
+      _id: new Types.ObjectId(pollId),
+    })) as PollDocumentTypes;
     if (!poll) {
       console.error("❌ Poll not found.");
       return;
@@ -448,10 +513,19 @@ slackApp.action("vote_scale", async ({ ack, body, action }) => {
     if (userVote) {
       userVote.scaleValue = parseInt(selectedValue);
     } else {
-      poll.votes.push({ userId, scaleValue: parseInt(selectedValue) });
+      poll.votes.push({
+        userId,
+        selectedOptions: [],
+        scaleValue: parseInt(selectedValue),
+        timestamp: new Date(),
+      });
     }
 
+    // Get message details from container
+    const { message_ts, channel_id } = blockBody.container;
+
     await poll.save();
+    await updatePollResults(channel_id, message_ts, poll);
 
     await slackApp.client.chat.postEphemeral({
       channel: body.channel?.id || "",
