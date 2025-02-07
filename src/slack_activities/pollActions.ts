@@ -238,6 +238,8 @@ slackApp.view("create_poll", async ({ ack, body, view }) => {
     const anonymous =
       (view.state.values.anonymous_block.anonymous?.selected_options?.length ??
         0) > 0;
+       
+
     const channelId =
       view.state.values.channel_block.select_channel.selected_conversation;
 
@@ -395,7 +397,7 @@ slackApp.action("vote_single", async ({ ack, body, action }) => {
     }
 
     poll.votes.push({
-      userId,
+        userId: poll.anonymous ? "anonymous" : userId, // Store as anonymous if enabled
       selectedOptions: [parseInt(selectedIndex)],
       timestamp: new Date(),
     });
@@ -457,7 +459,7 @@ slackApp.action("vote_multiple", async ({ ack, body, action }) => {
       userVote.selectedOptions.push(parseInt(selectedIndex));
     } else {
       poll.votes.push({
-        userId,
+        userId: poll.anonymous ? "anonymous" : userId, // Store as anonymous if enabled
         selectedOptions: [parseInt(selectedIndex)],
         timestamp: new Date(),
       });
@@ -514,7 +516,7 @@ slackApp.action("vote_scale", async ({ ack, body, action }) => {
       userVote.scaleValue = parseInt(selectedValue);
     } else {
       poll.votes.push({
-        userId,
+        userId: poll.anonymous ? "anonymous" : userId, // Store as anonymous if enabled
         selectedOptions: [],
         scaleValue: parseInt(selectedValue),
         timestamp: new Date(),
