@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Team } from "../models/Team";
+import { Team, TeamDocument } from "../models/Team";
 import { writeToStream } from "@fast-csv/format";
 import { format } from "date-fns";
 import { web as slackClient } from "../config/slack";
@@ -215,7 +215,7 @@ export const generateTeamReport = async (req: Request, res: Response) => {
     // Get team details
     const team = (await Team.findOne({
       slackChannelId: slackChannelId,
-    })) as TeamDocumentTypes;
+    })) as TeamDocument;
     if (!team) {
       res.status(404).json({ error: "Team not found" });
       return;
