@@ -133,6 +133,7 @@ slackApp.view("submit_kudos", async ({ ack, body, view, client }) => {
       reason,
       teamName: teamName.name,
     });
+    
   } catch (error) {
     console.error("Error sending kudos:", error);
     await client.chat.postMessage({
