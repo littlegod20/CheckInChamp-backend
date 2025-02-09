@@ -38,21 +38,19 @@ export const createTeam = async (
       return;
     }
 
-    // const team = new Team({ name, members, standUpConfig, timezone });
-    // await team.save();
+    const channelName = `team-${name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`;
 
     // Create a new team with the provided data
     const team = await Team.create({
-      name,
+      name: channelName,
       members,
       standUpConfig,
       timezone,
     });
 
-    const channelName = `team-${team.name
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-")}`; // Format channel name
     const slackChannelResponse = await slackClient.conversations.create({
       name: channelName,
       is_private: false, // Set to `false` if you want it to be a public channel
@@ -318,11 +316,9 @@ export const updateTeam = async (
     // Check if the team exists
     const existingTeam = await Team.findOne({ slackChannelId });
     if (!existingTeam) {
-      res
-        .status(404)
-        .json({
-          error: `Team with slackChannelId ${slackChannelId} not found`,
-        });
+      res.status(404).json({
+        error: `Team with slackChannelId ${slackChannelId} not found`,
+      });
       return;
     }
 
@@ -381,7 +377,7 @@ export const updateTeam = async (
             });
           }
 
-          // Remove members that are no longer part of the team 
+          // Remove members that are no longer part of the team
           const removedMembers = channelInfo.members.filter(
             (memberId: string) => !members.includes(memberId)
           );
