@@ -2,6 +2,7 @@ import { WebClient } from "@slack/web-api";
 import { Team } from "../models/Team";
 import { StandupResponse } from "../models/StandUpResponses";
 import { convert12hrTo24hr } from "./convert12hrTo24hr";
+import { TeamDocumentTypes } from "../types/TeamDocuments";
 
 // Initialize Slack client
 const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);

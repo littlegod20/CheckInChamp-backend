@@ -1,6 +1,7 @@
 import { WebClient } from "@slack/web-api";
 import { Team } from "../../models/Team";
 import { StandupResponse } from "../../models/StandUpResponses";
+import { TeamDocumentTypes } from "../../types/TeamDocuments";
 
 const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN as string);
 

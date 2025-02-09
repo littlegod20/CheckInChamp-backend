@@ -48,7 +48,10 @@ export const listenForTeamUpdates = async () => {
             );
 
             // Cancel scheduled jobs
-            if (scheduledJobs[deletedTeam.slackChannelId]) {
+            if (
+              deletedTeam.slackChannelId &&
+              scheduledJobs[deletedTeam.slackChannelId]
+            ) {
               Object.values(scheduledJobs[deletedTeam.slackChannelId])
                 .flat()
                 .forEach((job) => job.cancel());
