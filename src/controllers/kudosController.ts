@@ -5,36 +5,38 @@ import { Member } from "../models/Member";
 
 export const giveKudos = async (req: Request, res: Response) => {
   try {
-    const { giverId, receiverId, category, reason, teamName } = req.body;
+    const { giverId, receiverId, category, reason, teamId } = req.body;
 
     console.log("inisiss");
-    if (!giverId || !receiverId || !category || !reason || !teamName) {
+    if (!giverId || !receiverId || !category || !reason || !teamId) {
       console.log("Error");
       res.status(400).json({ error: "All fields are required" });
       return;
     }
 
-    console.log("data:", giverId, receiverId, category, reason, teamName);
+    console.log("data:", giverId, receiverId, category, reason, teamId);
     const giver = (await Member.findOne({ name: giverId })) as any;
     const receiver = (await Member.findOne({ name: receiverId })) as any;
+
+    console.log("dfa:", giver, receiver)
 
     // 🚫 REMOVE DAILY LIMIT CHECK FOR TESTING
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const kudosCount = await Kudos.countDocuments({
-      giverId,
+      giverId: giver.name,
       timestamp: { $gte: today },
     });
 
 
     if (kudosCount >= 3) {
       await slackApp.client.chat.postMessage({
-        channel: giverId,
+        channel: giver.slackId,
         text: `You have reached your daily limit of 3 kudos.`,
       });
-      // res
-      //   .status(403)
-      //   .json({ message: "You have reached your daily limit of 3 kudos." });
+      res
+        .status(403)
+        .json({ message: "You have reached your daily limit of 3 kudos." });
       return;
     }
 
@@ -43,7 +45,7 @@ export const giveKudos = async (req: Request, res: Response) => {
       receiverId,
       category,
       reason,
-      teamId: teamName,
+      teamId: teamId,
     });
 
 
