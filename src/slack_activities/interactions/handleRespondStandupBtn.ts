@@ -27,10 +27,10 @@ export const handleButtonClick = async (payload: any) => {
     }
 
     // const teamData = teamDoc;
-    console.log("TeamData:", teamDoc);
+    // console.log("TeamData:", teamDoc);
     const standupQuestions = teamDoc?.standUpConfig.questions || [];
 
-    console.log("standupQuestions:", standupQuestions);
+    // console.log("standupQuestions:", standupQuestions);
 
     if (standupQuestions.length === 0) {
       console.log(
@@ -85,6 +85,7 @@ export const handleButtonClick = async (payload: any) => {
         return;
       }
     }
+    
 
     // Dynamically generate modal blocks based on fetched questions
     const modalBlocks = standupQuestions.map((item, index: number) => {
@@ -104,7 +105,7 @@ export const handleButtonClick = async (payload: any) => {
           };
           break;
 
-        case "multiple-choice":
+        case "multiple_choice":
           element = {
             type: "multi_static_select",
             action_id: `answer_${questionId}`,
@@ -119,7 +120,7 @@ export const handleButtonClick = async (payload: any) => {
           };
           break;
 
-        case "select":
+        case "single_select":
           element = {
             type: "static_select",
             action_id: `answer_${questionId}`,
