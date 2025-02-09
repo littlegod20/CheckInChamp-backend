@@ -24,6 +24,9 @@ export const getPollDetails = async (req: Request, res: Response) => {
     // Fetch voter details and map selectedOptions to actual option names
     const votesWithUsernames = await Promise.all(
       poll.votes.map(async (vote) => {
+        if (poll.anonymous) {
+          return { username: "Anonymous", selectedOptions: vote.selectedOptions.join(", ") };
+        } 
         const member = await Member.findOne({ slackId: vote.userId });
 
         // Map selectedOptions (index) to actual option names

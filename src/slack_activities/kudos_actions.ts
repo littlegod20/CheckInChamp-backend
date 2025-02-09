@@ -126,14 +126,14 @@ slackApp.view("submit_kudos", async ({ ack, body, view, client }) => {
 
   try {
     // Call backend API instead of saving directly
-    await axios.post("http://localhost:5000/api/kudos", {
+    const response = await axios.post("http://localhost:5000/api/kudos", {
       giverId: giverName.name,
       receiverId: receiverName.name,
       category,
       reason,
-      teamName: teamName.name,
+      teamId: teamName.name,
     });
-    
+
   } catch (error) {
     console.error("Error sending kudos:", error);
     await client.chat.postMessage({
