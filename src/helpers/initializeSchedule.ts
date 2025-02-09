@@ -1,5 +1,6 @@
 import { scheduleStandUpMessage } from "../helpers/schedule";
 import { Team } from "../models/Team";
+import { TeamDocumentTypes } from "../types/TeamDocuments";
 
 export const initializeSchedules = async () => {
   try {
