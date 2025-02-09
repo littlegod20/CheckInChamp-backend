@@ -13,8 +13,8 @@ export const handleButtonClick = async (payload: any) => {
     // parsing standupId from the button's value
     const standupId = payload.actions[0].value.split("standup_")[1];
 
-    console.log("payloadActionsValue:", payload.actions[0].value);
-    console.log("standupId:", standupId);
+    // console.log("payloadActionsValue:", payload.actions[0].value);
+    // console.log("standupId:", standupId);
 
     // Fetch standup questions for the team from the database
     const teamDoc = (await Team.findOne({
@@ -26,11 +26,7 @@ export const handleButtonClick = async (payload: any) => {
       return;
     }
 
-    // const teamData = teamDoc;
-    // console.log("TeamData:", teamDoc);
     const standupQuestions = teamDoc?.standUpConfig.questions || [];
-
-    // console.log("standupQuestions:", standupQuestions);
 
     if (standupQuestions.length === 0) {
       console.log(
@@ -38,9 +34,6 @@ export const handleButtonClick = async (payload: any) => {
       );
       return;
     }
-
-    // Find the matching standup configuration
-    // const standupConfig = standupQuestions
 
     if (!standupQuestions) {
       console.error(`Standup configuration not found for ID: ${standupId}`);
@@ -85,7 +78,7 @@ export const handleButtonClick = async (payload: any) => {
         return;
       }
     }
-    
+
 
     // Dynamically generate modal blocks based on fetched questions
     const modalBlocks = standupQuestions.map((item, index: number) => {
