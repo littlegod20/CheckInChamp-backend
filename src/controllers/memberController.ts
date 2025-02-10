@@ -91,12 +91,19 @@ export const getAllUsers = async (
   try {
     let allUsers: any = [];
 
+    const BOT_SLACK_USER_ID = process.env.BOT_SLACK_USER_ID;
+
     //get all members from the redis cache with tag slackUser
     const keys = await redisClient.keys("*");
     for (const key of keys) {
       if (key.startsWith("slackUser:")) {
+        const userId = key.split(":")[1];
         const value = await redisClient.get(key);
-        allUsers.push({ id: key.split(":")[1], name: value });
+
+        // Exclude the bot from the list
+        if (userId !== BOT_SLACK_USER_ID) {
+          allUsers.push({ id: userId, name: value });
+        }
       }
     }
 

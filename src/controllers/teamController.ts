@@ -11,8 +11,10 @@ export const createTeam = async (
   res: Response
 ): Promise<void> => {
   const { name, members, standUpConfig, timezone } = req.body;
-  // console.log("Received POST /teams request with body:", req.body);
-  // console.log("StandupConfig:", standUpConfig);
+
+  const BOT_SLACK_USER_ID = process.env.BOT_SLACK_USER_ID;
+
+  console.log("bot user Id :", BOT_SLACK_USER_ID);
 
   try {
     // Check if the required fields are present
@@ -43,10 +45,12 @@ export const createTeam = async (
       .toLowerCase()
       .replace(/\s+/g, "-")}`;
 
+    console.log("channelName:", channelName);
+
     // Create a new team with the provided data
     const team = await Team.create({
       name: channelName,
-      members,
+      members: [...members, BOT_SLACK_USER_ID],
       standUpConfig,
       timezone,
     });
@@ -71,6 +75,8 @@ export const createTeam = async (
         `Failed to create Slack channel for team: ${slackChannelResponse.error}`
       );
     }
+
+    console.log("members:", JSON.stringify(members));
 
     //respond if successful
     res.status(201).json({
@@ -128,7 +134,14 @@ export const deleteChannel = async (
 export const getTeams = async (req: Request, res: Response): Promise<void> => {
   try {
     const teams = await Team.find();
-    res.json(teams);
+    const BOT_SLACK_USER_ID = process.env.BOT_SLACK_USER_ID;
+
+    const filteredTeams = teams.map((team) => ({
+      ...team.toObject(),
+      members: team.members.filter((member) => member !== BOT_SLACK_USER_ID),
+    }));
+
+    res.status(200).json(filteredTeams);
   } catch (error: any) {
     // Enhanced error logging
     console.error("Error in getAllTeams:", {
