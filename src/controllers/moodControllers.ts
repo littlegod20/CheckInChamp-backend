@@ -184,14 +184,16 @@ export const deleteMoodTime = async (req: Request, res: Response) => {
 };
 
 export const getMoodTime = async (req: Request, res: Response) => {
-  // const {slackChannelId} = req
+  const { teamId } = req.query;
   try {
-    const times = await MoodTime.find();
-    if (!times) {
-      res.status(404).json({ msg: "No mood checkin times exist" });
+    const moodTime = await MoodTime.findOne({ slackChannelId: teamId });
+    if (moodTime) {
+      res.status(200).json({ data: { moodTime: moodTime.moodTime } });
+      return;
+    } else {
+      res.json({ error: "Mood time not found" });
       return;
     }
-    res.status(200).json({ message: "Success", data: times });
   } catch (error) {
     console.error("Error fetching mood times", error);
   }
