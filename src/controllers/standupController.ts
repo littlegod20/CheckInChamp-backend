@@ -9,19 +9,27 @@ export const getStandupsByFilterOrAll = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { slackChannelId, date, userId } = req.query;
+  const { slackChannelId, date, userId, page = 1, limit = 1 } = req.query;
   try {
     const query: any = {};
     if (slackChannelId) query.slackChannelId = slackChannelId;
     if (date) query.date = new Date(date as string).toISOString().split("T")[0];
     if (userId) query.userId = userId;
 
-    console.log("Slackchannel Id:", slackChannelId);
-    console.log("query:", query);
-    // Fetch standups based on filters
-    const standups = await StandupResponse.find(query);
+    // converting page and limit to numbers
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
 
-    console.log("Standupjjjs:", standups);
+    // calculate the number of documents to skip
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // fetch total count of documents (for pagination metadata)
+    const total = await StandupResponse.countDocuments(query);
+
+    // Fetch standups based on filters
+    const standups = await StandupResponse.find(query)
+      .skip(skip)
+      .limit(limitNumber);
 
     // Fetch the status for each standup in parallel
     const statusPromises = standups.map((standup) =>
@@ -29,7 +37,19 @@ export const getStandupsByFilterOrAll = async (
     );
     const statuses = await Promise.all(statusPromises);
 
-    res.status(200).json({ standups, statuses });
+    // Calculate total pages
+    const totalPages = Math.ceil(total / limitNumber);
+
+    res.status(200).json({
+      standups,
+      statuses,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages,
+      },
+    });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
