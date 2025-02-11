@@ -60,7 +60,6 @@ export const getMoodResponses = async (req: Request, res: Response) => {
     // adding basic filters
     const filter = { ...req.query };
 
-    console.log("filter data:", filter);
     delete filter.page;
     delete filter.limit;
     delete filter.sort;
