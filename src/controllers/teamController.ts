@@ -4,6 +4,9 @@ import { writeToStream } from "@fast-csv/format";
 import { format } from "date-fns";
 import { web as slackClient } from "../config/slack";
 import { StandupResponse } from "../models/StandUpResponses";
+import { MoodResponse } from "../models/MoodResponse";
+import { Kudos } from "../models/kudos";
+import { TeamDocumentTypes } from "../types/TeamDocuments";
 
 //function required to create a team
 export const createTeam = async (
@@ -174,10 +177,9 @@ export const deleteTeam = async (
       }
     }
 
-    // Find the team by Slack channel ID and delete it
-    const team = await Team.findOneAndDelete({
-      slackChannelId: slackChannelId,
-    });
+    const team = (await Team.findOne({
+      slackChannelId,
+    })) as unknown as TeamDocumentTypes;
 
     if (!team) {
       res
@@ -186,21 +188,26 @@ export const deleteTeam = async (
       return;
     }
 
-    // find all standup responses for that team and delete it
-    const standupResponses = await StandupResponse.findOneAndDelete({
-      slackChannelId: slackChannelId,
-    });
+    // Delete all related documents in parallel
+    const [standupResult, moodResult, kudosResult] = await Promise.all([
+      StandupResponse.deleteMany({ slackChannelId }),
+      MoodResponse.deleteMany({ slackChannelId }),
+      Kudos.deleteMany({ teamId: team.name }),
+    ]);
 
-    if (!standupResponses) {
-      res.status(200).json({
-        message: `Team with Slack ID ${slackChannelId} deleted successfully. No stand up responses found`,
-      });
-      return;
-    } else {
-      res.status(404).json({
-        message: `Team with SlackId ${slackChannelId} deleted with along with its standup responses`,
-      });
-    }
+    // Delete the team after all related data is deleted
+    const teamDeletion = await Team.findOneAndDelete({ slackChannelId });
+
+    // Final response
+    res.status(200).json({
+      message: `Team ${team.name} and all associated data deleted successfully.`,
+      deleted: {
+        standupResponses: standupResult.deletedCount,
+        moodResponses: moodResult.deletedCount,
+        kudos: kudosResult.deletedCount,
+        teamDeleted: !!teamDeletion, // true if deletion was successful
+      },
+    });
   } catch (error: any) {
     // Enhanced error logging
     console.error("Error in deleteTeam:", {

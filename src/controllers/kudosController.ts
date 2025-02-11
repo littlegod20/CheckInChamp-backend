@@ -7,7 +7,6 @@ export const giveKudos = async (req: Request, res: Response) => {
   try {
     const { giverId, receiverId, category, reason, teamId } = req.body;
 
-    console.log("inisiss");
     if (!giverId || !receiverId || !category || !reason || !teamId) {
       console.log("Error");
       res.status(400).json({ error: "All fields are required" });
