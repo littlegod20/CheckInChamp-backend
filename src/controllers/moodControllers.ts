@@ -51,16 +51,16 @@ export const getMoodResponses = async (req: Request, res: Response) => {
   try {
     // adding pagination
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = parseInt(req.query.limit as string) || 5;
     const skip = (page - 1) * limit;
-
-    console.log("hitting the backend...");
 
     // Add sorting
     const sort: string = (req.query.sort as string) || "-date";
 
     // adding basic filters
     const filter = { ...req.query };
+
+    console.log("filter data:", filter);
     delete filter.page;
     delete filter.limit;
     delete filter.sort;
@@ -77,7 +77,7 @@ export const getMoodResponses = async (req: Request, res: Response) => {
       pagination: {
         page,
         total,
-        pages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {

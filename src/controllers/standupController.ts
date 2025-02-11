@@ -9,7 +9,14 @@ export const getStandupsByFilterOrAll = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { slackChannelId, date, userId, page = 1, limit = 1 } = req.query;
+  const {
+    slackChannelId,
+    date,
+    userId,
+    page = 1,
+    limit = 10,
+    sort = "-date",
+  } = req.query;
   try {
     const query: any = {};
     if (slackChannelId) query.slackChannelId = slackChannelId;
@@ -28,6 +35,7 @@ export const getStandupsByFilterOrAll = async (
 
     // Fetch standups based on filters
     const standups = await StandupResponse.find(query)
+      .sort(sort as string)
       .skip(skip)
       .limit(limitNumber);
 
