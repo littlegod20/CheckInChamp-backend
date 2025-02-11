@@ -26,25 +26,43 @@ export const giveKudos = async (req: Request, res: Response) => {
     console.log("dfa:", giver, receiver);
 
     // 🚫 REMOVE DAILY LIMIT CHECK FOR TESTING
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const kudosCount = await Kudos.countDocuments({
-      giverId: giver.name,
-      timestamp: { $gte: today },
-    });
+    // const today = new Date();
+    // today.setHours(0, 0, 0, 0);
+    // const kudosCount = await Kudos.countDocuments({
+    //   giverId: giver.name,
+    //   timestamp: { $gte: today },
+    // });
 
-    console.log("kudos count:", kudosCount);
+    // console.log("kudos count:", kudosCount);
 
-    if (kudosCount >= 3) {
-      await slackApp.client.chat.postMessage({
-        channel: giver.slackId,
-        text: `You have reached your daily limit of 3 kudos.`,
-      });
-      res
-        .status(403)
-        .json({ message: "You have reached your daily limit of 3 kudos." });
-      return;
-    }
+    // if (kudosCount >= 3) {
+    //   await slackApp.client.views.open({
+    //     trigger_id: req.body.trigger_id, // Pass the trigger_id from the request
+    //     view: {
+    //       type: "modal",
+    //       title: {
+    //         type: "plain_text",
+    //         text: "Kudos Limit Reached",
+    //       },
+    //       close: {
+    //         type: "plain_text",
+    //         text: "Close",
+    //       },
+    //       blocks: [
+    //         {
+    //           type: "section",
+    //           text: {
+    //             type: "mrkdwn",
+    //             text: `:warning: *You've reached your daily limit of 3 kudos!*\n\nYou can give more kudos tomorrow. Thank you for recognizing your teammates!`,
+    //           },
+    //         },
+    //       ],
+    //     },
+    //   });
+
+    //   res.status(200).json({ message: "Daily kudos limit reached" });
+    //   return;
+    // }
 
     const newKudos = await Kudos.create({
       giverId,

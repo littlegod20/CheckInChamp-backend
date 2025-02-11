@@ -1,7 +1,23 @@
 import { slackApp } from "../config/slack";
+import { Kudos } from "../models/kudos";
+import { Member } from "../models/Member";
 
 export const home_pub = () => {
   slackApp.event("app_home_opened", async ({ event, client }) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const giverName = await Member.findOne({slackId: event.user})
+
+    const kudosCount = await Kudos.countDocuments({
+      giverId: giverName?.name, // Use event.user as the giverId
+      timestamp: { $gte: today },
+    });
+
+    console.log("event.user:", giverName?.name);
+
+    console.log("kudos count:", kudosCount);
+
     try {
       await client.views.publish({
         user_id: event.user,
@@ -23,6 +39,11 @@ export const home_pub = () => {
                   url: "http://localhost:5173/",
                 },
               ],
+            },
+            { type: "divider" },
+            {
+              type: "section",
+              text: { type: "mrkdwn", text: `${3 - kudosCount} Kudos left` },
             },
             {
               type: "actions",
