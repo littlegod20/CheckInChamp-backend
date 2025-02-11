@@ -2,22 +2,28 @@ import { Request, Response } from "express";
 import { Kudos } from "../models/kudos";
 import { slackApp } from "../config/slack";
 import { Member } from "../models/Member";
+import { IMember } from "../types/MemberTypes";
 
 export const giveKudos = async (req: Request, res: Response) => {
   try {
-    const { giverId, receiverId, category, reason, teamId } = req.body;
+    const { giverId, receiverId, category, reason, teamName } = req.body;
 
-    if (!giverId || !receiverId || !category || !reason || !teamId) {
+    if (!giverId || !receiverId || !category || !reason || !teamName) {
       console.log("Error");
       res.status(400).json({ error: "All fields are required" });
       return;
     }
 
-    console.log("data:", giverId, receiverId, category, reason, teamId);
-    const giver = (await Member.findOne({ name: giverId })) as any;
-    const receiver = (await Member.findOne({ name: receiverId })) as any;
+    console.log("data:", giverId, receiverId, category, reason, teamName);
+    const giver = (await Member.findOne({ name: giverId })) as IMember;
+    const receiver = (await Member.findOne({ name: receiverId })) as IMember;
 
-    console.log("dfa:", giver, receiver)
+    if (!giver || !receiver) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    console.log("dfa:", giver, receiver);
 
     // 🚫 REMOVE DAILY LIMIT CHECK FOR TESTING
     const today = new Date();
@@ -27,6 +33,7 @@ export const giveKudos = async (req: Request, res: Response) => {
       timestamp: { $gte: today },
     });
 
+    console.log("kudos count:", kudosCount);
 
     if (kudosCount >= 3) {
       await slackApp.client.chat.postMessage({
@@ -44,9 +51,8 @@ export const giveKudos = async (req: Request, res: Response) => {
       receiverId,
       category,
       reason,
-      teamId: teamId,
+      teamName: teamName,
     });
-
 
     console.log("ids:", giver, receiver);
 
@@ -63,13 +69,13 @@ export const giveKudos = async (req: Request, res: Response) => {
 
     // 🟢 Send Kudos Notification to Slack
     await slackApp.client.chat.postMessage({
-      channel: receiverId, // Send to the receiver
+      channel: receiver.slackId, // Send to the receiver
       text: kudosMessage,
     });
 
     // Notify the giver (no limit message)
     await slackApp.client.chat.postMessage({
-      channel: giverId,
+      channel: giver.slackId,
       text: `✅ Kudos sent successfully!`,
     });
 
@@ -84,7 +90,16 @@ export const giveKudos = async (req: Request, res: Response) => {
 // ✅ Function to Get Kudos (with filtering)
 export const getKudos = async (req: Request, res: Response) => {
   try {
-    const { teamMember, category, startDate, endDate } = req.query;
+    const {
+      teamMember,
+      category,
+      startDate,
+      endDate,
+      limit = 5,
+      page = 1,
+    } = req.query;
+
+    console.log("req.query:", req.query);
 
     const filters: any = {};
     if (teamMember)
@@ -97,11 +112,30 @@ export const getKudos = async (req: Request, res: Response) => {
       };
     }
 
-    const kudos = await Kudos.find(filters).sort({ timestamp: -1 });
+    // converting page and limit to numbers
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
 
+    // calculate the number of documents to skip
+    const skip = (pageNumber - 1) * limitNumber;
 
+    // fetch total count of documents for pagination metadata
+    const total = await Kudos.countDocuments(filters);
 
-    res.status(200).json(kudos);
+    const kudos = await Kudos.find(filters).skip(skip).limit(limitNumber);
+
+    // Calculate total pages
+    const totalPages = Math.ceil(total / limitNumber);
+
+    res.status(200).json({
+      kudos,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error("Error fetching kudos:", error);
     res.status(500).json({ error: "Internal Server Error" });

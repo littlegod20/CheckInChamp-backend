@@ -131,7 +131,7 @@ slackApp.view("submit_kudos", async ({ ack, body, view, client }) => {
       receiverId: receiverName.name,
       category,
       reason,
-      teamId: teamName.name,
+      teamName: teamName.name,
     });
 
   } catch (error) {
