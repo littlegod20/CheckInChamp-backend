@@ -140,12 +140,22 @@ export const getLeaderboard = async (req: Request, res: Response) => {
     ]);
 
     // Fetch Slack user names for each receiverId
-    const fetchSlackUser = async (userId: string) => {
+    const fetchSlackUser = async (userName: string) => {
       try {
-        const response = await slackApp.client.users.info({ user: userId });
+        console.log("userName:", userName);
+
+        const userId = await Member.findOne({ name: userName });
+
+        if (!userId) {
+          throw new Error(`No user id found for ${userName}`);
+        }
+
+        const response = await slackApp.client.users.info({
+          user: userId.slackId,
+        });
         return response.user?.real_name || "Unknown User";
       } catch (error) {
-        console.error(`Error fetching Slack user ${userId}:`, error);
+        console.error(`Error fetching Slack user ${userName}:`, error);
         return "Unknown User";
       }
     };
