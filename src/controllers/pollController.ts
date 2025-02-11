@@ -151,17 +151,40 @@ export const getPollResults = async (req: Request, res: Response) => {
   
   export const getAllPolls = async (req: Request, res: Response) => {
     try {
-      const polls = await Poll.find().lean(); // Convert MongoDB objects to plain JSON
-  
-      // ✅ Fetch team names based on `channelId`
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const teamName = (req.query.teamName as string) || "";
+      const skip = (page - 1) * limit;
+
+      // building query
+      const query: any = {};
+      if (teamName) {
+        const teams = await Team.find({ name: new RegExp(teamName, "i") });
+        const channelIds = teams.map((team) => team.slackChannelId);
+        query.channelId = { $in: channelIds };
+      }
+
+      // Get paginated polls
+      const [polls, total] = await Promise.all([
+        Poll.find(query).skip(skip).limit(limit).lean(),
+        Poll.countDocuments(query),
+      ]);
+
+      // Add team names
       const pollsWithTeamNames = await Promise.all(
         polls.map(async (poll) => {
-          const team = await Team.findOne({ channelId: poll.channelId }); // Match by `channelId`
-          return { ...poll, teamName: team ? team.name : poll.channelId }; // Use team name or fallback to channelId
+          const team = await Team.findOne({ channelId: poll.channelId });
+          return { ...poll, teamName: team?.name || poll.channelId };
         })
       );
-  
-      res.status(200).json(pollsWithTeamNames);
+
+      
+    res.status(200).json({
+      polls: pollsWithTeamNames,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
     } catch (error) {
       console.error("Error fetching polls:", error);
       res.status(500).json({ error: "Internal Server Error" });
