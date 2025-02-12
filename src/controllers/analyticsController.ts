@@ -4,6 +4,7 @@ import { MoodResponse } from "../models/MoodResponse";
 import { Kudos } from "../models/kudos";
 import { Poll } from "../models/Poll";
 import { Team } from "../models/Team";
+import { fetchSlackUser } from "../helpers/fetchSlackUser";
 
 export const getMasterAnalytics = async (req: Request, res: Response) => {
   try {
@@ -341,8 +342,6 @@ const getRecentActivities = async (
   startDate?: string,
   endDate?: string
 ) => {
-  console.log("data:", team, startDate, endDate);
-
   const filter: Record<string, any> = {};
 
   if (team && team !== "All Teams") {
@@ -355,40 +354,78 @@ const getRecentActivities = async (
     if (endDate) filter.createdAt.$lte = new Date(endDate);
   }
 
-  console.log("filter:", filter);
-
   const [standups, kudos, polls] = await Promise.all([
     StandupResponse.find(filter.createdAt ? { date: filter.createdAt } : {})
       .sort({ date: -1 })
-      .limit(1),
-    // .populate("userId", "name"),
-    Kudos.find(filter.createdAt ? { timestamp: filter.createdAt } : {}) // Kudos filter
+      .limit(2),
+    Kudos.find(filter.createdAt ? { timestamp: filter.createdAt } : {})
       .sort({ timestamp: 1 })
-      .limit(1)
+      .limit(2)
       .populate("giverId", "receiverId"),
-    Poll.find(filter.createdAt ? { createdAt: filter.createdAt } : {}) // Polls filter
+    Poll.find(filter.createdAt ? { createdAt: filter.createdAt } : {})
       .sort({ createdAt: -1 })
-      .limit(1),
+      .limit(2),
   ]);
 
-  console.log("standups:", standups);
-  console.log("poll:", polls);
-  console.log("kudos:", kudos);
+  // Process standups with user names
+  const processedStandups = await Promise.all(
+    standups.map(async (s) => {
+      try {
+        // Get all user names first
+        const userNames = await Promise.all(
+          s.responses.map(async (item) => {
+            try {
+              return await fetchSlackUser(item.userId);
+            } catch (error) {
+              console.error(`Error fetching user ${item.userId}:`, error);
+              return "Unknown User";
+            }
+          })
+        );
 
-  return [
-    ...standups.map((s) => ({
-      type: "standup" as const,
-      teamId: s?.teamName,
-      date: s?.date.toISOString(),
-      details: `Standup completed by ${
-        s.responses.length > 0 ? s.responses.map((item) => item.userId) : "none"
-      }`,
-    })),
+        // Format the display string
+        let usersDisplay = "none";
+        if (userNames.length > 0) {
+
+          console.log("users:", userNames)
+
+          const visibleUsers = userNames.slice(0, 2);
+          const extraCount = userNames.length - visibleUsers.length;
+
+          usersDisplay = visibleUsers.join(", ");
+          if (extraCount > 0) {
+            usersDisplay += ` and ${extraCount} other${
+              extraCount > 1 ? "s" : ""
+            }`;
+          }
+        }
+
+        return {
+          type: "standup" as const,
+          teamId: s?.teamName,
+          date: s?.date.toISOString(),
+          details: `Standup completed by ${usersDisplay}`,
+        };
+      } catch (error) {
+        console.error("Error processing standup:", error);
+        return {
+          type: "standup" as const,
+          teamId: s?.teamName,
+          date: s?.date.toISOString(),
+          details: "Standup completed by unknown members",
+        };
+      }
+    })
+  );
+
+  // Process other activities
+  const activities = [
+    ...processedStandups,
     ...kudos.map((k) => ({
       type: "kudos" as const,
       teamId: k?.teamName,
       date: k?.timestamp.toISOString(),
-      details: `${k?.giverId} gave kudos to  ${k?.receiverId}`,
+      details: `${k?.giverId} gave kudos to ${k?.receiverId}`,
     })),
     ...polls.map((p) => ({
       type: "poll" as const,
@@ -396,7 +433,11 @@ const getRecentActivities = async (
       date: p.createdAt.toISOString(),
       details: `New poll created: ${p.question}`,
     })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  ];
+
+  return activities.sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 };
 
 const getTeamComparisonData = async (teamIds: string[], dateFilter: any) => {
