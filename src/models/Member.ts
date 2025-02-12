@@ -1,10 +1,7 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
+import { IMember } from '../types/MemberTypes';
 
-export interface IMember extends Document {
-  name: string;
-  slackId: string;
-  team: Types.ObjectId;
-}
+
 
 const memberSchema: Schema = new Schema({
   name: { type: String, required: true },

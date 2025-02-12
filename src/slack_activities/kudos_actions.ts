@@ -8,6 +8,38 @@ import { Member } from "../models/Member";
 slackApp.action("open_kudos_modal", async ({ body, ack, client }) => {
   await ack(); // Acknowledge the action
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const giverName = await Member.findOne({ slackId: body.user.id });
+
+  const kudosCount = await Kudos.countDocuments({
+    giverId: giverName?.name,
+    timestamp: { $gte: today },
+  });
+
+  if (kudosCount >= 3) {
+    // Send modal informing the user they reached the limit
+    await client.views.open({
+      trigger_id: (body as any).trigger_id, // trigger_id is available here
+      view: {
+        type: "modal",
+        title: { type: "plain_text", text: "Kudos Limit Reached" },
+        close: { type: "plain_text", text: "Close" },
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `:warning: *You've reached your daily limit of 3 kudos!*\n\nYou can give more kudos tomorrow. Thank you for recognizing your teammates!`,
+            },
+          },
+        ],
+      },
+    });
+    return;
+  }
+
   try {
     await client.views.open({
       trigger_id: (body as { trigger_id: string }).trigger_id,
@@ -131,9 +163,8 @@ slackApp.view("submit_kudos", async ({ ack, body, view, client }) => {
       receiverId: receiverName.name,
       category,
       reason,
-      teamId: teamName.name,
+      teamName: teamName.name,
     });
-
   } catch (error) {
     console.error("Error sending kudos:", error);
     await client.chat.postMessage({

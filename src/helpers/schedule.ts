@@ -5,6 +5,7 @@ import { config } from "dotenv";
 import { scheduleReminder } from "./scheduleReminder";
 import { StandupResponse } from "../models/StandUpResponses";
 import { convert12hrTo24hr } from "./convert12hrTo24hr";
+import { TeamDocumentTypes } from "../types/TeamDocuments";
 
 config();
 

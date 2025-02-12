@@ -2,52 +2,36 @@ import { Request, Response } from "express";
 import { Kudos } from "../models/kudos";
 import { slackApp } from "../config/slack";
 import { Member } from "../models/Member";
+import { IMember } from "../types/MemberTypes";
 
 export const giveKudos = async (req: Request, res: Response) => {
   try {
-    const { giverId, receiverId, category, reason, teamId } = req.body;
+    const { giverId, receiverId, category, reason, teamName } = req.body;
 
-    console.log("inisiss");
-    if (!giverId || !receiverId || !category || !reason || !teamId) {
+    if (!giverId || !receiverId || !category || !reason || !teamName) {
       console.log("Error");
       res.status(400).json({ error: "All fields are required" });
       return;
     }
 
-    console.log("data:", giverId, receiverId, category, reason, teamId);
-    const giver = (await Member.findOne({ name: giverId })) as any;
-    const receiver = (await Member.findOne({ name: receiverId })) as any;
+    console.log("data:", giverId, receiverId, category, reason, teamName);
+    const giver = (await Member.findOne({ name: giverId })) as IMember;
+    const receiver = (await Member.findOne({ name: receiverId })) as IMember;
 
-    console.log("dfa:", giver, receiver)
-
-    // 🚫 REMOVE DAILY LIMIT CHECK FOR TESTING
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const kudosCount = await Kudos.countDocuments({
-      giverId: giver.name,
-      timestamp: { $gte: today },
-    });
-
-
-    if (kudosCount >= 3) {
-      await slackApp.client.chat.postMessage({
-        channel: giver.slackId,
-        text: `You have reached your daily limit of 3 kudos.`,
-      });
-      res
-        .status(403)
-        .json({ message: "You have reached your daily limit of 3 kudos." });
+    if (!giver || !receiver) {
+      res.status(404).json({ error: "User not found" });
       return;
     }
+
+    console.log("giver & receiver:", giver, receiver);
 
     const newKudos = await Kudos.create({
       giverId,
       receiverId,
       category,
       reason,
-      teamId: teamId,
+      teamName: teamName,
     });
-
 
     console.log("ids:", giver, receiver);
 
@@ -64,13 +48,13 @@ export const giveKudos = async (req: Request, res: Response) => {
 
     // 🟢 Send Kudos Notification to Slack
     await slackApp.client.chat.postMessage({
-      channel: receiverId, // Send to the receiver
+      channel: receiver.slackId, // Send to the receiver
       text: kudosMessage,
     });
 
     // Notify the giver (no limit message)
     await slackApp.client.chat.postMessage({
-      channel: giverId,
+      channel: giver.slackId,
       text: `✅ Kudos sent successfully!`,
     });
 
@@ -85,7 +69,16 @@ export const giveKudos = async (req: Request, res: Response) => {
 // ✅ Function to Get Kudos (with filtering)
 export const getKudos = async (req: Request, res: Response) => {
   try {
-    const { teamMember, category, startDate, endDate } = req.query;
+    const {
+      teamMember,
+      category,
+      startDate,
+      endDate,
+      limit = 5,
+      page = 1,
+    } = req.query;
+
+    console.log("req.query:", req.query);
 
     const filters: any = {};
     if (teamMember)
@@ -98,11 +91,30 @@ export const getKudos = async (req: Request, res: Response) => {
       };
     }
 
-    const kudos = await Kudos.find(filters).sort({ timestamp: -1 });
+    // converting page and limit to numbers
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
 
+    // calculate the number of documents to skip
+    const skip = (pageNumber - 1) * limitNumber;
 
+    // fetch total count of documents for pagination metadata
+    const total = await Kudos.countDocuments(filters);
 
-    res.status(200).json(kudos);
+    const kudos = await Kudos.find(filters).skip(skip).limit(limitNumber);
+
+    // Calculate total pages
+    const totalPages = Math.ceil(total / limitNumber);
+
+    res.status(200).json({
+      kudos,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error("Error fetching kudos:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -128,12 +140,22 @@ export const getLeaderboard = async (req: Request, res: Response) => {
     ]);
 
     // Fetch Slack user names for each receiverId
-    const fetchSlackUser = async (userId: string) => {
+    const fetchSlackUser = async (userName: string) => {
       try {
-        const response = await slackApp.client.users.info({ user: userId });
+        console.log("userName:", userName);
+
+        const userId = await Member.findOne({ name: userName });
+
+        if (!userId) {
+          throw new Error(`No user id found for ${userName}`);
+        }
+
+        const response = await slackApp.client.users.info({
+          user: userId.slackId,
+        });
         return response.user?.real_name || "Unknown User";
       } catch (error) {
-        console.error(`Error fetching Slack user ${userId}:`, error);
+        console.error(`Error fetching Slack user ${userName}:`, error);
         return "Unknown User";
       }
     };

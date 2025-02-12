@@ -15,9 +15,9 @@ export const handleModalSubmission = async (payload: any) => {
     );
     const userId = payload.user.id;
 
-    console.log("standupId:", standupId);
-    console.log("slackChannelId:", slackChannelId);
-    console.log("userId:", userId);
+    // console.log("standupId:", standupId);
+    // console.log("slackChannelId:", slackChannelId);
+    // console.log("userId:", userId);
 
     const teamDoc = await Team.findOne({ slackChannelId: slackChannelId });
 

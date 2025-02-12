@@ -51,16 +51,15 @@ export const getMoodResponses = async (req: Request, res: Response) => {
   try {
     // adding pagination
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = parseInt(req.query.limit as string) || 5;
     const skip = (page - 1) * limit;
-
-    console.log("hitting the backend...");
 
     // Add sorting
     const sort: string = (req.query.sort as string) || "-date";
 
     // adding basic filters
     const filter = { ...req.query };
+
     delete filter.page;
     delete filter.limit;
     delete filter.sort;
@@ -77,7 +76,7 @@ export const getMoodResponses = async (req: Request, res: Response) => {
       pagination: {
         page,
         total,
-        pages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
@@ -184,14 +183,16 @@ export const deleteMoodTime = async (req: Request, res: Response) => {
 };
 
 export const getMoodTime = async (req: Request, res: Response) => {
-  // const {slackChannelId} = req
+  const { teamId } = req.query;
   try {
-    const times = await MoodTime.find();
-    if (!times) {
-      res.status(404).json({ msg: "No mood checkin times exist" });
+    const moodTime = await MoodTime.findOne({ slackChannelId: teamId });
+    if (moodTime) {
+      res.status(200).json({ data: { moodTime: moodTime.moodTime } });
+      return;
+    } else {
+      res.json({ error: "Mood time not found" });
       return;
     }
-    res.status(200).json({ message: "Success", data: times });
   } catch (error) {
     console.error("Error fetching mood times", error);
   }

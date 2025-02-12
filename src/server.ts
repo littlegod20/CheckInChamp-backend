@@ -9,7 +9,8 @@ import pollRoutes from "./routes/pollRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
 
 import { connectDB } from "./config/database";
-import { slackApp } from "./config/slack";
+import { web as slackClient, slackApp } from "./config/slack";
+
 import {
   appMentionRespond,
   greetingRespond,
@@ -102,6 +103,15 @@ home_pub();
 // Start Slack Bot
 (async () => {
   try {
+    // Fetch the bot's user ID during initialization
+    const BOT_SLACK_USER_ID = await slackClient.auth
+      .test()
+      .then((res) => res.user_id);
+    console.log("Bot User ID:", BOT_SLACK_USER_ID);
+
+    // Store the bot user ID in a global variable or environment variable
+    process.env.BOT_SLACK_USER_ID = BOT_SLACK_USER_ID;
+
     const SLACK_PORT = 3000;
     await slackApp.start(SLACK_PORT);
     initializeSchedules();

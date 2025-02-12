@@ -4,6 +4,9 @@ import { writeToStream } from "@fast-csv/format";
 import { format } from "date-fns";
 import { web as slackClient } from "../config/slack";
 import { StandupResponse } from "../models/StandUpResponses";
+import { MoodResponse } from "../models/MoodResponse";
+import { Kudos } from "../models/kudos";
+import { TeamDocumentTypes } from "../types/TeamDocuments";
 
 //function required to create a team
 export const createTeam = async (
@@ -11,8 +14,10 @@ export const createTeam = async (
   res: Response
 ): Promise<void> => {
   const { name, members, standUpConfig, timezone } = req.body;
-  // console.log("Received POST /teams request with body:", req.body);
-  // console.log("StandupConfig:", standUpConfig);
+
+  const BOT_SLACK_USER_ID = process.env.BOT_SLACK_USER_ID;
+
+  console.log("bot user Id :", BOT_SLACK_USER_ID);
 
   try {
     // Check if the required fields are present
@@ -38,21 +43,21 @@ export const createTeam = async (
       return;
     }
 
-    // const team = new Team({ name, members, standUpConfig, timezone });
-    // await team.save();
+    const channelName = `team-${name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`;
+
+    console.log("channelName:", channelName);
 
     // Create a new team with the provided data
     const team = await Team.create({
-      name,
-      members,
+      name: channelName,
+      members: [...members, BOT_SLACK_USER_ID],
       standUpConfig,
       timezone,
     });
 
-    const channelName = `team-${team.name
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-")}`; // Format channel name
     const slackChannelResponse = await slackClient.conversations.create({
       name: channelName,
       is_private: false, // Set to `false` if you want it to be a public channel
@@ -73,6 +78,8 @@ export const createTeam = async (
         `Failed to create Slack channel for team: ${slackChannelResponse.error}`
       );
     }
+
+    console.log("members:", JSON.stringify(members));
 
     //respond if successful
     res.status(201).json({
@@ -130,7 +137,14 @@ export const deleteChannel = async (
 export const getTeams = async (req: Request, res: Response): Promise<void> => {
   try {
     const teams = await Team.find();
-    res.json(teams);
+    const BOT_SLACK_USER_ID = process.env.BOT_SLACK_USER_ID;
+
+    const filteredTeams = teams.map((team) => ({
+      ...team.toObject(),
+      members: team.members.filter((member) => member !== BOT_SLACK_USER_ID),
+    }));
+
+    res.status(200).json(filteredTeams);
   } catch (error: any) {
     // Enhanced error logging
     console.error("Error in getAllTeams:", {
@@ -163,10 +177,9 @@ export const deleteTeam = async (
       }
     }
 
-    // Find the team by Slack channel ID and delete it
-    const team = await Team.findOneAndDelete({
-      slackChannelId: slackChannelId,
-    });
+    const team = (await Team.findOne({
+      slackChannelId,
+    })) as unknown as TeamDocumentTypes;
 
     if (!team) {
       res
@@ -175,21 +188,26 @@ export const deleteTeam = async (
       return;
     }
 
-    // find all standup responses for that team and delete it
-    const standupResponses = await StandupResponse.findOneAndDelete({
-      slackChannelId: slackChannelId,
-    });
+    // Delete all related documents in parallel
+    const [standupResult, moodResult, kudosResult] = await Promise.all([
+      StandupResponse.deleteMany({ slackChannelId }),
+      MoodResponse.deleteMany({ slackChannelId }),
+      Kudos.deleteMany({ teamId: team.name }),
+    ]);
 
-    if (!standupResponses) {
-      res.status(200).json({
-        message: `Team with Slack ID ${slackChannelId} deleted successfully. No stand up responses found`,
-      });
-      return;
-    } else {
-      res.status(404).json({
-        message: `Team with SlackId ${slackChannelId} deleted with along with its standup responses`,
-      });
-    }
+    // Delete the team after all related data is deleted
+    const teamDeletion = await Team.findOneAndDelete({ slackChannelId });
+
+    // Final response
+    res.status(200).json({
+      message: `Team ${team.name} and all associated data deleted successfully.`,
+      deleted: {
+        standupResponses: standupResult.deletedCount,
+        moodResponses: moodResult.deletedCount,
+        kudos: kudosResult.deletedCount,
+        teamDeleted: !!teamDeletion, // true if deletion was successful
+      },
+    });
   } catch (error: any) {
     // Enhanced error logging
     console.error("Error in deleteTeam:", {
@@ -318,11 +336,9 @@ export const updateTeam = async (
     // Check if the team exists
     const existingTeam = await Team.findOne({ slackChannelId });
     if (!existingTeam) {
-      res
-        .status(404)
-        .json({
-          error: `Team with slackChannelId ${slackChannelId} not found`,
-        });
+      res.status(404).json({
+        error: `Team with slackChannelId ${slackChannelId} not found`,
+      });
       return;
     }
 
@@ -381,7 +397,7 @@ export const updateTeam = async (
             });
           }
 
-          // Remove members that are no longer part of the team 
+          // Remove members that are no longer part of the team
           const removedMembers = channelInfo.members.filter(
             (memberId: string) => !members.includes(memberId)
           );

@@ -386,7 +386,7 @@ const getRecentActivities = async (
     })),
     ...kudos.map((k) => ({
       type: "kudos" as const,
-      teamId: k?.teamId,
+      teamId: k?.teamName,
       date: k?.timestamp.toISOString(),
       details: `${k?.giverId} gave kudos to  ${k?.receiverId}`,
     })),
