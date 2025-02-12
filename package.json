@@ -39,6 +39,7 @@
     "express": "^5.0.1",
     "express-validator": "^7.2.1",
     "fast-csv": "^5.0.2",
+    "jspdf": "^2.5.2",
     "luxon": "^3.5.0",
     "mongoose": "^8.9.5",
     "node-schedule": "^2.1.1",
